@@ -1,85 +1,87 @@
-# Copilot Consumption, Usage, and Cost Reporting Lab Guide (Hands-On)
+# Copilot Consumption, Usage, and Cost Reporting Lab Guide
 
-This lab is written for users who are not experts. Follow each step in order and you can complete setup, data collection, dashboard generation, and automation.
+This hands-on lab is designed for beginners and non-experts. Follow the steps in order to set up permissions, collect data, generate dashboards, and optionally automate the process.
 
-## Lab outcome
+## Table of contents
 
-By the end, you will have:
+- [Lab 0 - What you will build](#lab-0---what-you-will-build)
+- [Lab 1 - Prepare your machine](#lab-1---prepare-your-machine)
+- [Lab 2 - Register the Entra application](#lab-2---register-the-entra-application)
+- [Lab 3 - Configure Graph permissions](#lab-3---configure-graph-permissions)
+- [Lab 4 - Configure Azure subscription access](#lab-4---configure-azure-subscription-access)
+- [Lab 5 - Configure project environment variables](#lab-5---configure-project-environment-variables)
+- [Lab 6 - Run your first data collection](#lab-6---run-your-first-data-collection)
+- [Lab 7 - Build and open the dashboard](#lab-7---build-and-open-the-dashboard)
+- [Lab 8 - Validate data sources and usage coverage](#lab-8---validate-data-sources-and-usage-coverage)
+- [Lab 9 - Troubleshooting guide](#lab-9---troubleshooting-guide)
+- [Lab 10 - Automation paths](#lab-10---automation-paths)
+- [Lab 11 - Publish and operate](#lab-11---publish-and-operate)
 
-1. A working app registration and permissions model.
-2. A working local data collector.
-3. A dashboard with unified data from Graph, Azure Cost Management, Agent catalog, and Copilot Studio Dataverse.
-4. Optional automation using Azure Function or Power Automate.
+## Lab 0 - What you will build
 
-## Time estimate
+By the end of this guide you will have:
 
-- Basic setup + first successful run: 45 to 90 minutes
-- Automation setup: 30 to 90 minutes
+1. A working collector for Microsoft Graph, Azure Cost Management, Agent catalog, and Copilot Studio Dataverse.
+2. A unified JSON snapshot (`data/latest.json`).
+3. A shareable HTML dashboard (`dashboard.built.html`).
+4. Optional scheduled automation (Azure Function or Power Automate).
 
-## Before you start
+Estimated time:
 
-You need:
+- Initial setup and first successful run: 45-90 minutes
+- Automation setup: 30-90 minutes
 
-- A Windows machine with internet access
-- A tenant where you can create app registrations
-- Access to Microsoft Graph permissions/admin consent workflow
-- Access to the Azure subscription (for Azure cost data)
-- Optional: access to Copilot Studio Dataverse environment
+## Lab 1 - Prepare your machine
 
-## Step 1: Install local tools
+Prerequisites:
 
-1. Install **Node.js LTS** (v20+ recommended):  
-   https://nodejs.org/
-2. Open **PowerShell**.
-3. Verify installation:
+- Windows machine
+- Internet access
+- Permission to create app registrations in your tenant
+- Access to Azure subscription IAM for cost-reader assignment
+
+Install tools:
+
+1. Install Node.js LTS (Node 20+ recommended): https://nodejs.org/
+2. Open PowerShell.
+3. Verify:
 
 ```powershell
 node -v
 npm -v
+git --version
 ```
 
-If both commands return versions, continue.
-
-## Step 2: Get the project code
-
-1. Open PowerShell.
-2. Clone your GitHub repository:
+Clone the project:
 
 ```powershell
 git clone https://github.com/ukpkumar/Copilot-Consumption-Usage-and-Cost-Reporting-Lab-Guide.git
 cd Copilot-Consumption-Usage-and-Cost-Reporting-Lab-Guide
-```
-
-3. Install dependencies:
-
-```powershell
 npm install
 ```
 
-## Step 3: Create app registration in Entra
+## Lab 2 - Register the Entra application
 
-1. Open Microsoft Entra admin center:  
-   https://entra.microsoft.com
-2. Go to **Identity** > **Applications** > **App registrations**.
-3. Click **New registration**.
-4. Name: `Copilot Tenant Cost Dashboard Collector`.
-5. Supported account type: **Accounts in this organizational directory only**.
-6. Click **Register**.
-7. Copy and save:
-   - **Application (client) ID** (this is `CLIENT_ID`)
-   - **Directory (tenant) ID** (this is `TENANT_ID`)
+1. Open https://entra.microsoft.com
+2. Go to **Identity** > **Applications** > **App registrations**
+3. Select **New registration**
+4. Enter name: `Copilot Tenant Cost Dashboard Collector`
+5. Choose: **Accounts in this organizational directory only**
+6. Select **Register**
+7. Save these values from **Overview**:
+   - **Application (client) ID** -> `CLIENT_ID`
+   - **Directory (tenant) ID** -> `TENANT_ID`
 
-## Step 4: Enable public client flow (for local device-code sign-in)
+Enable device-code/public client flow:
 
-1. In the app registration, open **Authentication**.
-2. Scroll to **Advanced settings**.
-3. Set **Allow public client flows** to **Yes**.
-4. Click **Save**.
+1. Open **Authentication**
+2. Under **Advanced settings**, set **Allow public client flows** = **Yes**
+3. Click **Save**
 
-## Step 5: Add Graph API permissions
+## Lab 3 - Configure Graph permissions
 
-1. In the app registration, open **API permissions**.
-2. Click **Add a permission** > **Microsoft Graph**.
+1. Open app registration > **API permissions**
+2. Select **Add a permission** > **Microsoft Graph**
 3. Add delegated permissions:
    - `CopilotCostManagement.Read.All`
    - `CopilotCostManagement-Policy.Read.All`
@@ -87,89 +89,92 @@ npm install
    - `User.Read`
 4. Add application permission:
    - `Reports.Read.All`
-5. Click **Grant admin consent**.
-6. Confirm all required permissions show as **Granted**.
+5. Select **Grant admin consent**
+6. Confirm status is **Granted** for required permissions
 
-## Step 6: Add Azure Cost Management access
+## Lab 4 - Configure Azure subscription access
 
-1. Open Azure portal:  
-   https://portal.azure.com
-2. Go to **Subscriptions** > select your subscription.
-3. Open **Access control (IAM)** > **Add role assignment**.
-4. Role: **Cost Management Reader** (or equivalent read role).
-5. Assign access to the app’s service principal.
-6. Save.
-7. Copy the **Subscription ID** (this is `AZURE_SUBSCRIPTION_ID`).
+1. Open https://portal.azure.com
+2. Go to **Subscriptions** and select your target subscription
+3. Copy **Subscription ID** -> `AZURE_SUBSCRIPTION_ID`
+4. Go to **Access control (IAM)** > **Add role assignment**
+5. Role: **Cost Management Reader** (or equivalent)
+6. Assign to the app's service principal
+7. Save changes
 
-## Step 7: Configure `.env`
+## Lab 5 - Configure project environment variables
 
-1. In project root, copy the sample file:
+Create your local env file:
 
 ```powershell
 copy .env.example .env
 ```
 
-2. Open `.env` and set values:
+Edit `.env`:
 
 ```env
 TENANT_ID=<your-tenant-id>
 CLIENT_ID=<your-client-id>
 AZURE_SUBSCRIPTION_ID=<your-subscription-id>
-USER_IDS=<optional-comma-separated-user-upns>
 
-# Optional Agent usage source #1
-AGENT365_USAGE_URL=<optional-agent-usage-endpoint>
+# Optional diagnostics users (comma-separated UPNs or object IDs)
+USER_IDS=user1@contoso.com,user2@contoso.com
 
-# Optional Agent usage source #2
+# Agent usage source priority #1 (optional)
+AGENT365_USAGE_URL=https://graph.microsoft.com/beta/<your-agent-usage-endpoint>
+
+# Agent usage source priority #2 (optional fallback file)
 COPILOT_STUDIO_USAGE_EXPORT_PATH=.\data\copilot-studio-usage.json
 
 # Optional request queue filter
 COPILOT_ADMIN_REQUEST_FILTER=requestStatus eq 'pending'
 
-# Optional Dataverse source
+# Dataverse source (recommended for Copilot Studio coverage)
 DATAVERSE_URL=https://<org>.crm.dynamics.com
 COPILOT_STUDIO_LOOKBACK_DAYS=30
 COPILOT_STUDIO_TRANSCRIPT_TOP=500
+
+# Optional output path
+OUTPUT_PATH=.\data\latest.json
 ```
 
-## Step 8: Run collection
+## Lab 6 - Run your first data collection
 
-1. Run:
+Run:
 
 ```powershell
 npm run collect
 ```
 
-2. If prompted for device-code auth:
-   - Open the URL shown in terminal (`https://login.microsoft.com/device`)
-   - Enter the code shown in terminal
-   - Complete sign-in
-3. Wait for command completion.
-4. Confirm output exists:
+If prompted for device-code sign-in:
+
+1. Open `https://login.microsoft.com/device`
+2. Enter the code shown in terminal
+3. Complete sign-in
+4. Return to terminal and wait for completion
+
+Confirm output file:
 
 ```powershell
 dir .\data\latest.json
 ```
 
-## Step 9: Build dashboard
+## Lab 7 - Build and open the dashboard
 
-1. Build standalone dashboard:
+Build:
 
 ```powershell
 npm run build:dashboard
 ```
 
-2. Confirm output:
+Open:
 
-```powershell
-dir .\dashboard.built.html
-```
+- `dashboard.html` (load JSON manually), or
+- `dashboard.built.html` (self-contained with embedded snapshot)
 
-3. Open `dashboard.html` or `dashboard.built.html` in a browser.
+## Lab 8 - Validate data sources and usage coverage
 
-## Step 10: Validate source status in dashboard
-
-In the dashboard, check **Source Health**:
+In the dashboard, review **Source Health**:
 
 - Graph Copilot Cost Management
 - Graph Copilot Reports
@@ -178,78 +183,66 @@ In the dashboard, check **Source Health**:
 - Copilot Studio Dataverse
 - Azure Cost Management
 
-If a source is `warn`/`error`, the reason appears in the notes.
+Agent usage source priority:
 
-## How Agent Usage is filled
+1. `AGENT365_USAGE_URL`
+2. `COPILOT_STUDIO_USAGE_EXPORT_PATH` (or default files in `data`)
+3. Dataverse `conversationtranscripts` via `DATAVERSE_URL`
 
-The collector uses this priority:
+If all three are unavailable, agent usage will be skipped.
 
-1. `AGENT365_USAGE_URL` (if configured and successful)
-2. `COPILOT_STUDIO_USAGE_EXPORT_PATH` (or default files under `data/`)
-3. Dataverse `conversationtranscripts` (when `DATAVERSE_URL` is configured)
+## Lab 9 - Troubleshooting guide
 
-If all are missing/unavailable, `sources.agentUsage` is skipped.
+### 9.1 Graph API `403`
 
-## Troubleshooting quick map
+- Recheck permission scopes and admin consent
+- Verify your account role/licensing
+- Wait and retry after consent propagation
 
-### A) `403` on Graph APIs
+### 9.2 Azure `fetch failed` or empty cost results
 
-- Re-check API permissions and admin consent.
-- Confirm your account has required admin roles/licensing.
-- Re-run after consent propagation delay.
+- Verify `AZURE_SUBSCRIPTION_ID`
+- Verify IAM role assignment at subscription scope
+- Retry authentication
 
-### B) Azure `fetch failed` or auth issues
-
-- Confirm subscription ID is valid.
-- Confirm role assignment on subscription scope.
-- Re-run sign-in and retry.
-
-### C) Agent usage empty
+### 9.3 Copilot Studio usage missing
 
 - Set `AGENT365_USAGE_URL`, or
-- Provide export file (`copilot-studio-usage.json/csv`), or
-- Set valid `DATAVERSE_URL`.
+- Provide a usage export file (`.json`/`.csv`), or
+- Set valid `DATAVERSE_URL`
 
-### D) Dataverse source unavailable
+### 9.4 Dataverse source unavailable
 
-- Verify URL format (`https://<org>.crm.dynamics.com`).
-- Verify account/app access to Dataverse tables:
+- Validate URL format: `https://<org>.crm.dynamics.com`
+- Validate access to Dataverse tables:
   - `bot`
   - `botcomponent`
   - `conversationtranscript`
 
-### E) Device code expires
+### 9.5 Device code expired
 
-- Re-run command to generate a fresh device code.
-- Complete sign-in immediately.
+- Re-run the command and use the new code immediately
 
-## Automation path 1: Azure Function
+## Lab 10 - Automation paths
 
-Use `docs/AUTOMATION-AZURE-FUNCTION.md` and follow:
+Choose one:
 
-1. Create Function App (Node.js)
-2. Deploy project
-3. Configure environment variables
-4. Configure timer trigger
-5. Validate one manual run
+1. **Azure Function (timer-based)**  
+   Follow: [AUTOMATION-AZURE-FUNCTION.md](./AUTOMATION-AZURE-FUNCTION.md)
+2. **Power Automate (scheduled cloud flow)**  
+   Follow: [AUTOMATION-POWER-AUTOMATE.md](./AUTOMATION-POWER-AUTOMATE.md)
 
-## Automation path 2: Power Automate
+## Lab 11 - Publish and operate
 
-Use `docs/AUTOMATION-POWER-AUTOMATE.md` and follow:
+Publishing guide:
 
-1. Create scheduled cloud flow
-2. Call Azure Function HTTP endpoint (recommended), or run PAD flow
-3. Store secrets securely
-4. Add notifications and failure branch
+- [GITHUB-PUBLISH.md](./GITHUB-PUBLISH.md)
 
-## GitHub publishing flow
-
-Use `docs/GITHUB-PUBLISH.md` for push workflow and repository hardening.
-
-## Recommended operating routine
+Operational routine:
 
 1. Run `npm run collect`
 2. Run `npm run build:dashboard`
-3. Review dashboard source health
-4. If all good, share dashboard artifact
-5. Keep secrets out of Git commits (`.env` must stay local)
+3. Review source health
+4. Share artifacts after validation
+5. Keep `.env` local and never commit secrets
+

@@ -12,11 +12,10 @@ This sample pulls tenant data from:
 
 Then you can view the unified snapshot in `dashboard.html`.
 
-## Full beginner-friendly lab manual
+## Documentation
 
-For detailed click-by-click guidance, use:
-
-- `docs/LAB-HANDS-ON-GUIDE.md`
+- **Documentation index:** [docs/INDEX.md](./docs/INDEX.md)
+- **Full hands-on lab guide:** [docs/LAB-HANDS-ON-GUIDE.md](./docs/LAB-HANDS-ON-GUIDE.md)
 
 ## 1) App registration
 
@@ -138,12 +137,12 @@ Upload `copilot-tenant-cost-cowork-app.zip` into your Cowork/Copilot app catalog
 
 ## 6) Automation options
 
-- **Azure Function (timer-based):** `docs/AUTOMATION-AZURE-FUNCTION.md`
-- **Power Automate (scheduled flow):** `docs/AUTOMATION-POWER-AUTOMATE.md`
+- **Azure Function (timer-based):** [docs/AUTOMATION-AZURE-FUNCTION.md](./docs/AUTOMATION-AZURE-FUNCTION.md)
+- **Power Automate (scheduled flow):** [docs/AUTOMATION-POWER-AUTOMATE.md](./docs/AUTOMATION-POWER-AUTOMATE.md)
 
 ## 7) Publish to GitHub
 
-Follow: `docs/GITHUB-PUBLISH.md`
+Follow: [docs/GITHUB-PUBLISH.md](./docs/GITHUB-PUBLISH.md)
 
 ## Notes
 
