@@ -1,0 +1,30 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.28/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.28",
+  "version": "0.1.0",
+  "id": "c44fc284-a064-49e5-b9c6-160bd7c531b9",
+  "developer": {
+    "name": "Microsoft",
+    "websiteUrl": "https://www.microsoft.com",
+    "privacyUrl": "https://www.microsoft.com/privacy/privacystatement",
+    "termsOfUseUrl": "https://www.microsoft.com/servicesagreement"
+  },
+  "name": {
+    "short": "Tenant Cost IQ",
+    "full": "Copilot Tenant Cost Dashboard Analyst"
+  },
+  "description": {
+    "short": "Analyzes Copilot and Azure cost snapshots from the tenant dashboard collector.",
+    "full": "Cowork skill app that analyzes the output from the Copilot Tenant Cost Dashboard collector, summarizes spend and usage, and highlights policy, user, and service-level cost signals."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#B11F4B",
+  "agentSkills": [
+    {
+      "folder": "./skills/tenant-cost-dashboard-analyst"
+    }
+  ]
+}

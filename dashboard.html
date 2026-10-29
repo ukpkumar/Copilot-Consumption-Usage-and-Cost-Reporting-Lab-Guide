@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Copilot Tenant Cost Dashboard</title>
+    <script>
+      (() => {
+        const param = new URLSearchParams(window.location.search).get("scoutTheme");
+        const theme =
+          param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --cp-bg: #f7f4ef;
+        --cp-bg-elevated: #fcfbf8;
+        --cp-surface: #ffffff;
+        --cp-surface-soft: #f5f5f5;
+        --cp-border: #dedede;
+        --cp-border-strong: #919191;
+        --cp-text: #242424;
+        --cp-text-muted: #5c5c5c;
+        --cp-accent: #b11f4b;
+        --cp-accent-hover: #9a1a41;
+        --cp-accent-fg: #ffffff;
+        --cp-success: #16a34a;
+        --cp-danger: #dc2626;
+        --cp-warning: #f59e0b;
+      }
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --cp-bg: #3d3b3a;
+        --cp-bg-elevated: #343231;
+        --cp-surface: #292929;
+        --cp-surface-soft: #2e2e2e;
+        --cp-border: #474747;
+        --cp-border-strong: #5f5f5f;
+        --cp-text: #dedede;
+        --cp-text-muted: #919191;
+        --cp-accent: #fd8ea1;
+        --cp-accent-hover: #fb7b91;
+        --cp-accent-fg: #1a1a1a;
+        --cp-success: #4ade80;
+        --cp-danger: #f87171;
+        --cp-warning: #fbbf24;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+        background:
+          radial-gradient(1400px 500px at -10% -20%, rgba(177, 31, 75, 0.12), transparent 55%),
+          radial-gradient(1000px 500px at 110% 10%, rgba(22, 163, 74, 0.1), transparent 50%),
+          var(--cp-bg);
+        color: var(--cp-text);
+      }
+      .shell {
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 22px;
+      }
+      .hero,
+      .card,
+      .table-wrap,
+      details {
+        background: var(--cp-surface);
+        border: 1px solid var(--cp-border);
+        border-radius: 14px;
+      }
+      .hero {
+        padding: 20px 22px;
+        margin-bottom: 14px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.1);
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(120deg, transparent 15%, rgba(255, 255, 255, 0.25), transparent 70%);
+      }
+      .hero h1 {
+        margin: 0 0 6px 0;
+        font-size: 30px;
+        letter-spacing: 0.2px;
+      }
+      .hero p {
+        margin: 0;
+        color: var(--cp-text-muted);
+      }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        margin: 10px 0 18px 0;
+        flex-wrap: wrap;
+      }
+      button,
+      .button-like {
+        border: 1px solid var(--cp-border-strong);
+        background: var(--cp-surface);
+        color: var(--cp-text);
+        border-radius: 10px;
+        padding: 9px 12px;
+        cursor: pointer;
+        font: inherit;
+      }
+      button:hover,
+      .button-like:hover {
+        background: var(--cp-surface-soft);
+      }
+      .button-primary {
+        background: var(--cp-accent);
+        color: var(--cp-accent-fg);
+        border-color: var(--cp-accent);
+      }
+      .button-primary:hover {
+        background: var(--cp-accent-hover);
+      }
+      input[type="file"] {
+        display: none;
+      }
+      .status {
+        margin: 0 0 14px 0;
+        color: var(--cp-text-muted);
+        font-size: 13px;
+      }
+      .ok {
+        color: var(--cp-success);
+      }
+      .warn {
+        color: var(--cp-warning);
+      }
+      .err {
+        color: var(--cp-danger);
+      }
+      .muted {
+        color: var(--cp-text-muted);
+        font-size: 12px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(190px, 1fr));
+        gap: 10px;
+      }
+      .card {
+        padding: 12px;
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
+      }
+      .kpi-label {
+        color: var(--cp-text-muted);
+        font-size: 12px;
+      }
+      .kpi-value {
+        margin-top: 5px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+      .section {
+        margin-top: 16px;
+      }
+      .section h2 {
+        margin: 0 0 8px 0;
+        font-size: 18px;
+      }
+      .section .sub {
+        margin: 0 0 8px 0;
+        color: var(--cp-text-muted);
+        font-size: 12px;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--cp-border);
+        text-align: left;
+        vertical-align: top;
+        font-size: 12px;
+      }
+      th {
+        color: var(--cp-text-muted);
+        font-size: 11px;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        background: var(--cp-surface-soft);
+        z-index: 1;
+      }
+      tbody tr:nth-child(even) {
+        background: color-mix(in srgb, var(--cp-surface-soft) 60%, transparent);
+      }
+      .mono {
+        font-family: Consolas, "Courier New", Courier, monospace;
+      }
+      .pill {
+        display: inline-block;
+        border: 1px solid var(--cp-border-strong);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+      }
+      details {
+        padding: 8px 10px;
+      }
+      summary {
+        cursor: pointer;
+        user-select: none;
+        font-weight: 600;
+      }
+      pre {
+        overflow-x: auto;
+        background: var(--cp-surface-soft);
+        border: 1px solid var(--cp-border);
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 12px;
+      }
+      .viz-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(280px, 1fr));
+        gap: 10px;
+      }
+      .viz-card {
+        border: 1px solid var(--cp-border);
+        border-radius: 14px;
+        background: var(--cp-surface);
+        padding: 12px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+      }
+      .viz-card h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+      }
+      .bar-list {
+        display: grid;
+        gap: 8px;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: minmax(110px, 1fr) 3fr auto;
+        gap: 8px;
+        align-items: center;
+        font-size: 12px;
+      }
+      .bar-track {
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--cp-surface-soft);
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--cp-accent), color-mix(in srgb, var(--cp-accent) 45%, #22c55e));
+      }
+      .bar-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      @media (max-width: 1100px) {
+        .grid {
+          grid-template-columns: repeat(2, minmax(190px, 1fr));
+        }
+        .viz-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="hero">
+        <h1>Copilot Tenant Cost Dashboard</h1>
+        <p>Complete view of Graph Copilot Cost, Graph Copilot Reports, and Azure cost data from one snapshot.</p>
+      </div>
+
+      <div class="toolbar">
+        <label class="button-like button-primary">
+          Load data JSON
+          <input id="fileInput" type="file" accept=".json,application/json" />
+        </label>
+        <button id="loadSampleBtn">Load sample (if available)</button>
+        <button id="clearBtn">Clear</button>
+      </div>
+
+      <div id="status" class="status">Load <span class="mono">data\latest.json</span> exported by the collector.</div>
+
+      <div class="grid section">
+        <div class="card"><div class="kpi-label">Snapshot Generated</div><div id="kpiGeneratedAt" class="kpi-value mono">-</div></div>
+        <div class="card"><div class="kpi-label">Tenant ID</div><div id="kpiTenantId" class="kpi-value mono">-</div></div>
+        <div class="card"><div class="kpi-label">Queried Users</div><div id="kpiQueriedUsers" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">Graph Usage Users (Rows)</div><div id="kpiUsageUsers" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">Policies</div><div id="kpiPolicies" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">Policy Recipients</div><div id="kpiRecipients" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">User Diagnostics</div><div id="kpiUserDiag" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">Agent Usage Rows</div><div id="kpiAgentUsageRows" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">Admin Catalog Packages</div><div id="kpiAgentPackages" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">Dataverse Transcripts</div><div id="kpiDataverseTranscripts" class="kpi-value">-</div></div>
+        <div class="card"><div class="kpi-label">Azure Usage Details Rows</div><div id="kpiAzureUsageRows" class="kpi-value">-</div></div>
+      </div>
+
+      <div class="section">
+        <h2>Source Health</h2>
+        <div class="table-wrap"><table><thead><tr><th>Source</th><th>Status</th><th>Notes</th></tr></thead><tbody id="sourceHealthBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Visual Insights</h2>
+        <div class="viz-grid">
+          <div class="viz-card">
+            <h3>Top Azure Services by Cost</h3>
+            <div id="topServiceBars" class="bar-list"></div>
+          </div>
+          <div class="viz-card">
+            <h3>Agent Package States</h3>
+            <div id="packageStateBars" class="bar-list"></div>
+          </div>
+          <div class="viz-card">
+            <h3>Copilot Studio Dataverse Volumes</h3>
+            <div id="dataverseVolumeBars" class="bar-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Agent Usage (Agent 365 → Copilot Studio fallback)</h2>
+        <p id="agentUsageMeta" class="sub">No agent usage source loaded.</p>
+        <div class="table-wrap"><table><thead id="agentUsageHead"></thead><tbody id="agentUsageBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Agent 365 Admin Catalog (Packages)</h2>
+        <p id="agentCatalogMeta" class="sub">No admin catalog source loaded.</p>
+        <div class="table-wrap"><table><thead id="agentCatalogHead"></thead><tbody id="agentCatalogBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Copilot Studio Dataverse Analytics</h2>
+        <p id="dataverseMeta" class="sub">No Dataverse source loaded.</p>
+        <div class="table-wrap"><table><thead id="dataverseBotsHead"></thead><tbody id="dataverseBotsBody"></tbody></table></div>
+        <div class="table-wrap" style="margin-top:10px"><table><thead id="dataverseComponentsHead"></thead><tbody id="dataverseComponentsBody"></tbody></table></div>
+        <div class="table-wrap" style="margin-top:10px"><table><thead id="dataverseTranscriptsHead"></thead><tbody id="dataverseTranscriptsBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Tenant Credit Balances</h2>
+        <div class="table-wrap"><table><thead><tr><th>Billing Method</th><th>Purchased</th><th>Consumed</th><th>Remaining</th><th>Unit</th><th>Data Last Modified</th></tr></thead><tbody id="tenantBalancesBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Spending Policies</h2>
+        <div class="table-wrap"><table><thead><tr><th>Policy</th><th>State</th><th>Status</th><th>Billing Methods</th><th>Period Limit</th><th>Per User Limit</th><th>Services</th><th>Recipients</th><th>Thresholds</th></tr></thead><tbody id="policiesBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Policy Recipients (Flattened)</h2>
+        <div class="table-wrap"><table><thead><tr><th>Policy</th><th>User ID</th><th>Display Name</th><th>User Principal Name</th><th>Mail</th><th>Department</th><th>Account Enabled</th></tr></thead><tbody id="policyRecipientsBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>User Diagnostics (Requested Users)</h2>
+        <p class="sub">These rows come from <span class="mono">queriedUsers</span> (currently requested diagnostics), not the full tenant directory.</p>
+        <div class="table-wrap"><table><thead><tr><th>Input User</th><th>Resolved User ID</th><th>Resolution</th><th>Spending Policy</th><th>Service Balance Rows</th><th>Usage As Of</th><th>Notes</th></tr></thead><tbody id="userDiagBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>User Service Balances (Flattened)</h2>
+        <div class="table-wrap"><table><thead><tr><th>User</th><th>Service ID</th><th>Policy ID</th><th>Consumed</th><th>Remaining</th><th>Allowed</th><th>Reason</th><th>Unit</th></tr></thead><tbody id="userServiceBalancesBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Copilot Usage Detail (Tenant-Wide Report Rows)</h2>
+        <p class="sub">This is tenant report output; each row represents a user activity record from Graph reports.</p>
+        <div class="table-wrap"><table><thead id="usageDetailHead"></thead><tbody id="usageDetailBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Copilot User Count Summary</h2>
+        <div class="table-wrap"><table><thead id="userSummaryHead"></thead><tbody id="userSummaryBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Copilot User Count Trend</h2>
+        <div class="table-wrap"><table><thead id="userTrendHead"></thead><tbody id="userTrendBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Azure Cost by Service (Daily, MTD)</h2>
+        <div class="table-wrap"><table><thead id="azureServiceHead"></thead><tbody id="azureServiceBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Azure Cost by Subscription (Daily, MTD)</h2>
+        <div class="table-wrap"><table><thead id="azureSubHead"></thead><tbody id="azureSubBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Azure Usage Details (Flattened)</h2>
+        <div class="table-wrap"><table><thead><tr><th>Date</th><th>Service</th><th>Meter Category</th><th>Meter Name</th><th>Resource Group</th><th>Resource ID</th><th>Cost</th><th>Currency</th><th>Quantity</th><th>Unit</th></tr></thead><tbody id="azureUsageBody"></tbody></table></div>
+      </div>
+
+      <div class="section">
+        <h2>Raw Snapshot (All Fields)</h2>
+        <details>
+          <summary>Expand to view every field in the loaded JSON</summary>
+          <pre id="rawJson">-</pre>
+        </details>
+      </div>
+    </div>
+
+    <script id="embeddedSnapshot" type="application/json"></script>
+    <script>
+      const state = { data: null };
+
+      const statusEl = document.getElementById("status");
+      const fileInput = document.getElementById("fileInput");
+      const loadSampleBtn = document.getElementById("loadSampleBtn");
+      const clearBtn = document.getElementById("clearBtn");
+
+      function safeArray(value) {
+        return Array.isArray(value) ? value : [];
+      }
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+      function setStatus(message, className = "") {
+        statusEl.textContent = message;
+        statusEl.className = `status ${className}`.trim();
+      }
+      function asText(value) {
+        if (value === null || value === undefined || value === "") return "-";
+        if (typeof value === "object") return JSON.stringify(value);
+        return String(value);
+      }
+      function asNum(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+      }
+      function formatNum(value, digits = 2) {
+        const n = asNum(value);
+        return n === null ? "-" : n.toLocaleString(undefined, { maximumFractionDigits: digits });
+      }
+      function formatBool(value) {
+        if (value === true) return "true";
+        if (value === false) return "false";
+        return "-";
+      }
+      function renderBarList(elementId, entries) {
+        const host = document.getElementById(elementId);
+        const rows = safeArray(entries).filter((e) => e && Number.isFinite(Number(e.value)));
+        if (!rows.length) {
+          host.innerHTML = `<div class="muted">No data</div>`;
+          return;
+        }
+        const maxValue = Math.max(...rows.map((r) => Number(r.value)), 1);
+        host.innerHTML = rows
+          .map((row) => {
+            const value = Number(row.value);
+            const pct = Math.max(2, Math.round((value / maxValue) * 100));
+            return `<div class="bar-row">
+              <div class="bar-label" title="${escapeHtml(asText(row.label))}">${escapeHtml(asText(row.label))}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+              <div class="mono">${escapeHtml(formatNum(value, 4))}</div>
+            </div>`;
+          })
+          .join("");
+      }
+      function getFirstValue(row, candidates) {
+        const lowered = new Map();
+        Object.entries(row || {}).forEach(([k, v]) => lowered.set(k.toLowerCase(), v));
+        for (const c of candidates) {
+          if (lowered.has(c.toLowerCase())) return lowered.get(c.toLowerCase());
+        }
+        return null;
+      }
+      function normalizeRow(row) {
+        const obj = {};
+        for (const [k, v] of Object.entries(row || {})) {
+          obj[k] = typeof v === "object" && v !== null ? JSON.stringify(v) : asText(v);
+        }
+        return obj;
+      }
+      function mapColumnsRows(columns, rows) {
+        const colNames = safeArray(columns).map((c) => c?.name || "");
+        return safeArray(rows).map((r) => {
+          const obj = {};
+          colNames.forEach((name, i) => {
+            obj[name || `col${i + 1}`] = r[i];
+          });
+          return obj;
+        });
+      }
+      function renderDynamicTable(headId, bodyId, rows) {
+        const headEl = document.getElementById(headId);
+        const bodyEl = document.getElementById(bodyId);
+        const normalized = safeArray(rows).map(normalizeRow);
+        const keys = [...new Set(normalized.flatMap((r) => Object.keys(r)))];
+        if (!keys.length) {
+          headEl.innerHTML = "<tr><th>No data</th></tr>";
+          bodyEl.innerHTML = "<tr><td>-</td></tr>";
+          return;
+        }
+        headEl.innerHTML = `<tr>${keys.map((k) => `<th>${escapeHtml(k)}</th>`).join("")}</tr>`;
+        bodyEl.innerHTML = normalized
+          .map(
+            (row) =>
+              `<tr>${keys
+                .map((k) => `<td class="${k.toLowerCase().includes("id") ? "mono" : ""}">${escapeHtml(asText(row[k]))}</td>`)
+                .join("")}</tr>`
+          )
+          .join("");
+      }
+
+      function render() {
+        const data = state.data;
+        if (!data) {
+          [
+            "kpiGeneratedAt",
+            "kpiTenantId",
+            "kpiQueriedUsers",
+            "kpiUsageUsers",
+            "kpiPolicies",
+            "kpiRecipients",
+            "kpiUserDiag",
+            "kpiAgentUsageRows",
+            "kpiAgentPackages",
+            "kpiDataverseTranscripts",
+            "kpiAzureUsageRows"
+          ].forEach((id) => (document.getElementById(id).textContent = "-"));
+          [
+            "sourceHealthBody",
+            "tenantBalancesBody",
+            "policiesBody",
+            "policyRecipientsBody",
+            "userDiagBody",
+            "userServiceBalancesBody",
+            "azureUsageBody"
+          ].forEach((id) => (document.getElementById(id).innerHTML = ""));
+          document.getElementById("agentUsageMeta").textContent = "No agent usage source loaded.";
+          document.getElementById("agentCatalogMeta").textContent = "No admin catalog source loaded.";
+          document.getElementById("dataverseMeta").textContent = "No Dataverse source loaded.";
+          renderBarList("topServiceBars", []);
+          renderBarList("packageStateBars", []);
+          renderBarList("dataverseVolumeBars", []);
+          document.getElementById("rawJson").textContent = "-";
+          renderDynamicTable("agentUsageHead", "agentUsageBody", []);
+          renderDynamicTable("agentCatalogHead", "agentCatalogBody", []);
+          renderDynamicTable("dataverseBotsHead", "dataverseBotsBody", []);
+          renderDynamicTable("dataverseComponentsHead", "dataverseComponentsBody", []);
+          renderDynamicTable("dataverseTranscriptsHead", "dataverseTranscriptsBody", []);
+          renderDynamicTable("usageDetailHead", "usageDetailBody", []);
+          renderDynamicTable("userSummaryHead", "userSummaryBody", []);
+          renderDynamicTable("userTrendHead", "userTrendBody", []);
+          renderDynamicTable("azureServiceHead", "azureServiceBody", []);
+          renderDynamicTable("azureSubHead", "azureSubBody", []);
+          return;
+        }
+
+        const sourceCost = data?.sources?.graphCopilotCost || {};
+        const sourceReports = data?.sources?.graphCopilotReports || {};
+        const sourceAgentUsage = data?.sources?.agentUsage || {};
+        const sourceAgentCatalog = data?.sources?.agent365AdminCatalog || {};
+        const sourceDataverse = data?.sources?.copilotStudioDataverse || {};
+        const sourceAzure = data?.sources?.azureCostManagement || {};
+        const queriedUsers = safeArray(data?.queriedUsers);
+        const policies = safeArray(sourceCost?.policies);
+        const userDiags = safeArray(sourceCost?.userDiagnostics);
+        const agentUsageRows = safeArray(sourceAgentUsage?.rows);
+        const agentPackages = safeArray(sourceAgentCatalog?.packages);
+        const agentPackageDetails = safeArray(sourceAgentCatalog?.packageDetails);
+        const agentRequestPackages = safeArray(sourceAgentCatalog?.requestsView?.packages);
+        const dataverseBots = safeArray(sourceDataverse?.bots);
+        const dataverseComponents = safeArray(sourceDataverse?.botcomponents);
+        const dataverseTranscripts = safeArray(sourceDataverse?.conversationtranscripts);
+        const usageRows = safeArray(sourceReports?.usageDetail?.data?.value);
+        const summaryRows = safeArray(sourceReports?.userCountSummary?.data?.value);
+        const trendRows = safeArray(sourceReports?.userCountTrend?.data?.value);
+        const tenantBalances = safeArray(sourceCost?.tenantCreditBalance?.billingMethodBalances);
+        const serviceRows = mapColumnsRows(
+          sourceAzure?.costQueryByServiceDaily?.properties?.columns,
+          sourceAzure?.costQueryByServiceDaily?.properties?.rows
+        );
+        const subRows = mapColumnsRows(
+          sourceAzure?.costQueryBySubscriptionDaily?.properties?.columns,
+          sourceAzure?.costQueryBySubscriptionDaily?.properties?.rows
+        );
+        const usageDetails = safeArray(sourceAzure?.usageDetails);
+
+        const serviceCostMap = new Map();
+        for (const row of serviceRows) {
+          const serviceName = asText(
+            getFirstValue(row, ["ServiceName", "serviceName", "service", "ConsumedService"])
+          );
+          const cost = Number(getFirstValue(row, ["PreTaxCost", "pretaxcost", "cost", "Cost"]));
+          if (!serviceName || !Number.isFinite(cost)) continue;
+          serviceCostMap.set(serviceName, (serviceCostMap.get(serviceName) || 0) + cost);
+        }
+        const topServiceBars = [...serviceCostMap.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .map(([label, value]) => ({ label, value }));
+
+        const packageStateMap = new Map();
+        for (const pkg of agentPackages) {
+          const state = asText(pkg?.state || pkg?.status || pkg?.lifecycleState || "unknown");
+          packageStateMap.set(state, (packageStateMap.get(state) || 0) + 1);
+        }
+        const packageStateBars = [...packageStateMap.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, value]) => ({ label, value }));
+
+        const dataverseVolumeBars = [
+          { label: "bots", value: dataverseBots.length },
+          { label: "botcomponents", value: dataverseComponents.length },
+          {
+            label: "conversationtranscripts",
+            value: Number(sourceDataverse?.summary?.conversationtranscriptsCount ?? dataverseTranscripts.length)
+          }
+        ];
+
+        const policyRecipientRows = [];
+        for (const p of policies) {
+          const policyName = p?.policy?.displayName || p?.policy?.id || "-";
+          for (const r of safeArray(p?.recipients)) {
+            if (r?.error) {
+              policyRecipientRows.push({
+                policy: policyName,
+                id: "-",
+                displayName: "-",
+                userPrincipalName: "-",
+                mail: "-",
+                department: "-",
+                accountEnabled: `error: ${r.error}`
+              });
+            } else {
+              policyRecipientRows.push({
+                policy: policyName,
+                id: r?.id,
+                displayName: r?.displayName,
+                userPrincipalName: r?.userPrincipalName,
+                mail: r?.mail,
+                department: r?.department,
+                accountEnabled: r?.accountEnabled
+              });
+            }
+          }
+        }
+
+        const userServiceRows = [];
+        for (const u of userDiags) {
+          for (const sb of safeArray(u?.serviceBalances)) {
+            userServiceRows.push({
+              userId: u?.userId,
+              serviceId: sb?.serviceId,
+              spendingPolicyId: sb?.spendingPolicyId,
+              consumedQuantity: sb?.consumedQuantity,
+              remainingQuantity: sb?.remainingQuantity?.value,
+              isConsumptionAllowed: sb?.isConsumptionAllowed,
+              accessDecisionReason: sb?.accessDecisionReason,
+              unit: sb?.unit
+            });
+          }
+        }
+
+        const azureUsageRows = usageDetails.map((item) => {
+          const p = item?.properties || {};
+          return {
+            date: p?.date || p?.usageStart || p?.usageDate || "",
+            service: p?.serviceName || p?.consumedService || p?.product || "",
+            meterCategory: p?.meterCategory || "",
+            meterName: p?.meterName || "",
+            resourceGroup: p?.resourceGroup || "",
+            resourceId: p?.instanceId || p?.resourceId || "",
+            cost: p?.costInBillingCurrency ?? p?.pretaxCost ?? "",
+            currency: p?.billingCurrency || p?.currency || "",
+            quantity: p?.quantity || "",
+            unit: p?.unitOfMeasure || ""
+          };
+        });
+
+        document.getElementById("kpiGeneratedAt").textContent = data.generatedAt || "-";
+        document.getElementById("kpiTenantId").textContent = data.tenantId || "-";
+        document.getElementById("kpiQueriedUsers").textContent = String(queriedUsers.length);
+        document.getElementById("kpiUsageUsers").textContent = String(usageRows.length);
+        document.getElementById("kpiPolicies").textContent = String(policies.length);
+        document.getElementById("kpiRecipients").textContent = String(policyRecipientRows.length);
+        document.getElementById("kpiUserDiag").textContent = String(userDiags.length);
+        document.getElementById("kpiAgentUsageRows").textContent = String(agentUsageRows.length);
+        document.getElementById("kpiAgentPackages").textContent = String(agentPackages.length);
+        document.getElementById("kpiDataverseTranscripts").textContent = String(
+          sourceDataverse?.summary?.conversationtranscriptsCount ?? dataverseTranscripts.length
+        );
+        document.getElementById("kpiAzureUsageRows").textContent = String(usageDetails.length);
+
+        const sourceHealthRows = [
+          {
+            source: "Graph Copilot Cost Management",
+            status: policies.length ? "ok" : "warn",
+            notes: policies.length ? `${policies.length} policies loaded` : "No policies returned"
+          },
+          {
+            source: "Graph Copilot Reports",
+            status: sourceReports?.usageDetail?.ok ? "ok" : "error",
+            notes: sourceReports?.usageDetail?.ok
+              ? `${usageRows.length} usage rows`
+              : asText(sourceReports?.usageDetail?.error || sourceReports?.usageDetail?.errors)
+          },
+          {
+            source: "Agent Usage",
+            status: sourceAgentUsage?.ok ? "ok" : sourceAgentUsage?.skipped ? "warn" : "error",
+            notes: sourceAgentUsage?.ok
+              ? `${agentUsageRows.length} rows from ${sourceAgentUsage?.source || "unknown"}`
+              : asText(sourceAgentUsage?.error || sourceAgentUsage?.reason || "not available")
+          },
+          {
+            source: "Agent 365 Admin Catalog",
+            status: sourceAgentCatalog?.ok ? "ok" : "error",
+            notes: sourceAgentCatalog?.ok
+              ? `${agentPackages.length} packages, ${agentPackageDetails.length} detail reads`
+              : asText(sourceAgentCatalog?.error || "not available")
+          },
+          {
+            source: "Copilot Studio Dataverse",
+            status: sourceDataverse?.ok ? "ok" : sourceDataverse?.skipped ? "warn" : "error",
+            notes: sourceDataverse?.ok
+              ? `bots ${dataverseBots.length}, components ${dataverseComponents.length}, transcripts ${dataverseTranscripts.length}`
+              : asText(sourceDataverse?.error || sourceDataverse?.reason || "not available")
+          },
+          {
+            source: "Azure Cost Management",
+            status: sourceAzure?.ok ? "ok" : "error",
+            notes: sourceAzure?.ok
+              ? `${serviceRows.length} service rows, ${subRows.length} subscription rows, ${usageDetails.length} usage details`
+              : asText(sourceAzure?.error || sourceAzure?.reason || "not available")
+          }
+        ];
+        document.getElementById("sourceHealthBody").innerHTML = sourceHealthRows
+          .map(
+            (r) =>
+              `<tr><td>${escapeHtml(r.source)}</td><td><span class="pill ${r.status === "ok" ? "ok" : r.status === "warn" ? "warn" : "err"}">${escapeHtml(r.status)}</span></td><td>${escapeHtml(r.notes)}</td></tr>`
+          )
+          .join("");
+
+        const shownAgentRows = agentUsageRows.slice(0, 500);
+        const agentSummary = sourceAgentUsage?.summary || {};
+        document.getElementById("agentUsageMeta").textContent = sourceAgentUsage?.ok
+          ? `Source: ${sourceAgentUsage?.source || "unknown"} | Rows: ${agentUsageRows.length} (showing ${shownAgentRows.length}) | Distinct agents: ${asText(agentSummary?.distinctAgentCount)} | Distinct users: ${asText(agentSummary?.distinctUserCount)}`
+          : `Source unavailable: ${asText(sourceAgentUsage?.error || sourceAgentUsage?.reason || "not available")}`;
+        renderDynamicTable("agentUsageHead", "agentUsageBody", shownAgentRows);
+
+        const detailStatus = {
+          ok: agentPackageDetails.filter((d) => d?.ok).length,
+          error: agentPackageDetails.filter((d) => d && d.ok === false).length
+        };
+        document.getElementById("agentCatalogMeta").textContent = sourceAgentCatalog?.ok
+          ? `Packages: ${agentPackages.length} | Detail success: ${detailStatus.ok} | Detail errors: ${detailStatus.error} | Request-view packages: ${agentRequestPackages.length}`
+          : `Source unavailable: ${asText(sourceAgentCatalog?.error || "not available")}`;
+
+        const packageRows = agentPackages.map((pkg) => {
+          const id = pkg?.id;
+          const detail = agentPackageDetails.find((d) => d?.id === id);
+          return {
+            id,
+            displayName: pkg?.displayName || pkg?.name,
+            type: pkg?.packageType || pkg?.type,
+            state: pkg?.state || pkg?.status || pkg?.lifecycleState,
+            visibility: pkg?.visibility || pkg?.audience,
+            owner: pkg?.owner?.userPrincipalName || pkg?.owner?.id || pkg?.ownerId,
+            detailRead: detail?.ok ? "ok" : detail?.error ? `error: ${detail.error}` : "not-read"
+          };
+        });
+        renderDynamicTable("agentCatalogHead", "agentCatalogBody", packageRows.slice(0, 500));
+
+        document.getElementById("dataverseMeta").textContent = sourceDataverse?.ok
+          ? `Env: ${asText(sourceDataverse?.dataverseUrl)} | Lookback: ${asText(
+              sourceDataverse?.lookbackDays
+            )} days | Transcript count: ${asText(
+              sourceDataverse?.summary?.conversationtranscriptsCount
+            )}`
+          : `Source unavailable: ${asText(sourceDataverse?.error || sourceDataverse?.reason || "not available")}`;
+        renderDynamicTable("dataverseBotsHead", "dataverseBotsBody", dataverseBots.slice(0, 200));
+        renderDynamicTable(
+          "dataverseComponentsHead",
+          "dataverseComponentsBody",
+          dataverseComponents.slice(0, 200)
+        );
+        renderDynamicTable(
+          "dataverseTranscriptsHead",
+          "dataverseTranscriptsBody",
+          dataverseTranscripts.slice(0, 500)
+        );
+        renderBarList("topServiceBars", topServiceBars);
+        renderBarList("packageStateBars", packageStateBars);
+        renderBarList("dataverseVolumeBars", dataverseVolumeBars);
+
+        document.getElementById("tenantBalancesBody").innerHTML = tenantBalances
+          .map(
+            (b) =>
+              `<tr>
+                <td>${escapeHtml(asText(b?.billingMethod))}</td>
+                <td>${escapeHtml(formatNum(b?.purchasedQuantity))}</td>
+                <td>${escapeHtml(formatNum(b?.consumedQuantity))}</td>
+                <td>${escapeHtml(formatNum(b?.remainingQuantity))}</td>
+                <td>${escapeHtml(asText(b?.unit))}</td>
+                <td class="mono">${escapeHtml(asText(b?.dataStatus?.lastModifiedDateTime))}</td>
+              </tr>`
+          )
+          .join("");
+
+        document.getElementById("policiesBody").innerHTML = policies
+          .map((p) => {
+            const policy = p?.policy || {};
+            const thresholds = safeArray(p?.emailThresholdSettings?.thresholds)
+              .map((t) => `${t?.value} (${t?.["@odata.type"] || "threshold"})`)
+              .join("; ");
+            const recipientCount = safeArray(p?.recipients).length;
+            const periodLimit = p?.policy?.periodLimit?.value ?? p?.policy?.periodLimit?.unit ?? "-";
+            const perUserLimit = p?.policy?.perUserLimit?.value ?? p?.policy?.perUserLimit?.unit ?? "-";
+            return `<tr>
+              <td class="mono">${escapeHtml(asText(policy.displayName || policy.id))}</td>
+              <td>${escapeHtml(asText(policy.state))}</td>
+              <td>${escapeHtml(asText(policy.status))}</td>
+              <td>${escapeHtml(asText(policy.billingMethods))}</td>
+              <td>${escapeHtml(asText(periodLimit))}</td>
+              <td>${escapeHtml(asText(perUserLimit))}</td>
+              <td>${escapeHtml(String(safeArray(p?.serviceSettings).length))}</td>
+              <td>${escapeHtml(String(recipientCount))}</td>
+              <td>${escapeHtml(thresholds || "-")}</td>
+            </tr>`;
+          })
+          .join("");
+
+        document.getElementById("policyRecipientsBody").innerHTML = policyRecipientRows
+          .map(
+            (r) =>
+              `<tr>
+                <td>${escapeHtml(asText(r.policy))}</td>
+                <td class="mono">${escapeHtml(asText(r.id))}</td>
+                <td>${escapeHtml(asText(r.displayName))}</td>
+                <td>${escapeHtml(asText(r.userPrincipalName))}</td>
+                <td>${escapeHtml(asText(r.mail))}</td>
+                <td>${escapeHtml(asText(r.department))}</td>
+                <td>${escapeHtml(formatBool(r.accountEnabled))}</td>
+              </tr>`
+          )
+          .join("");
+
+        document.getElementById("userDiagBody").innerHTML = userDiags
+          .map((u) => {
+            if (u?.error) {
+              return `<tr>
+                <td>${escapeHtml(asText(u?.userId))}</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="err">${escapeHtml(asText(u.error))}</td>
+              </tr>`;
+            }
+            return `<tr>
+              <td>${escapeHtml(asText(u?.userId))}</td>
+              <td class="mono">${escapeHtml(asText(u?.resolvedUserId))}</td>
+              <td>${escapeHtml(asText(u?.resolvedFrom))}</td>
+              <td class="mono">${escapeHtml(asText(u?.balance?.spendingPolicyId || "-"))}</td>
+              <td>${escapeHtml(String(safeArray(u?.serviceBalances).length))}</td>
+              <td class="mono">${escapeHtml(asText(u?.balance?.selectionDataStatus?.usageAsOfDateTime))}</td>
+              <td>${escapeHtml("OK")}</td>
+            </tr>`;
+          })
+          .join("");
+
+        document.getElementById("userServiceBalancesBody").innerHTML = userServiceRows
+          .map(
+            (r) =>
+              `<tr>
+                <td>${escapeHtml(asText(r.userId))}</td>
+                <td class="mono">${escapeHtml(asText(r.serviceId))}</td>
+                <td class="mono">${escapeHtml(asText(r.spendingPolicyId))}</td>
+                <td>${escapeHtml(formatNum(r.consumedQuantity, 4))}</td>
+                <td>${escapeHtml(formatNum(r.remainingQuantity, 4))}</td>
+                <td>${escapeHtml(formatBool(r.isConsumptionAllowed))}</td>
+                <td>${escapeHtml(asText(r.accessDecisionReason))}</td>
+                <td>${escapeHtml(asText(r.unit))}</td>
+              </tr>`
+          )
+          .join("");
+
+        document.getElementById("azureUsageBody").innerHTML = azureUsageRows
+          .map(
+            (r) =>
+              `<tr>
+                <td class="mono">${escapeHtml(asText(r.date))}</td>
+                <td>${escapeHtml(asText(r.service))}</td>
+                <td>${escapeHtml(asText(r.meterCategory))}</td>
+                <td>${escapeHtml(asText(r.meterName))}</td>
+                <td>${escapeHtml(asText(r.resourceGroup))}</td>
+                <td class="mono">${escapeHtml(asText(r.resourceId))}</td>
+                <td>${escapeHtml(formatNum(r.cost, 6))}</td>
+                <td>${escapeHtml(asText(r.currency))}</td>
+                <td>${escapeHtml(formatNum(r.quantity, 6))}</td>
+                <td>${escapeHtml(asText(r.unit))}</td>
+              </tr>`
+          )
+          .join("");
+
+        renderDynamicTable("usageDetailHead", "usageDetailBody", usageRows);
+        renderDynamicTable("userSummaryHead", "userSummaryBody", summaryRows);
+        renderDynamicTable("userTrendHead", "userTrendBody", trendRows);
+        renderDynamicTable("azureServiceHead", "azureServiceBody", serviceRows);
+        renderDynamicTable("azureSubHead", "azureSubBody", subRows);
+
+        document.getElementById("rawJson").textContent = JSON.stringify(data, null, 2);
+      }
+
+      async function loadSample() {
+        try {
+          const response = await fetch("./data/latest.json");
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          state.data = await response.json();
+          render();
+          setStatus("Loaded sample from data/latest.json", "ok");
+        } catch (error) {
+          setStatus(`Could not load sample: ${error.message}`, "warn");
+        }
+      }
+
+      fileInput.addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+          state.data = JSON.parse(await file.text());
+          render();
+          setStatus(`Loaded ${file.name}`, "ok");
+        } catch (error) {
+          setStatus(`Invalid JSON: ${error.message}`, "err");
+        } finally {
+          fileInput.value = "";
+        }
+      });
+
+      loadSampleBtn.addEventListener("click", () => loadSample());
+      clearBtn.addEventListener("click", () => {
+        state.data = null;
+        render();
+        setStatus("Cleared. Load a new data snapshot.");
+      });
+
+      (function loadEmbeddedSnapshot() {
+        const embedded = document.getElementById("embeddedSnapshot");
+        const payload = embedded?.textContent?.trim();
+        if (!payload) {
+          render();
+          return;
+        }
+        try {
+          state.data = JSON.parse(payload);
+          render();
+          setStatus("Loaded embedded snapshot.", "ok");
+        } catch (error) {
+          render();
+          setStatus(`Embedded snapshot is invalid JSON: ${error.message}`, "warn");
+        }
+      })();
+    </script>
+  </body>
+</html>

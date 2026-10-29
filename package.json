@@ -1,0 +1,12 @@
+{
+  "name": "copilot-tenant-cost-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "collect": "node src/collect-all.js",
+    "build:dashboard": "node src/build-dashboard.js",
+    "pack:cowork": "powershell -NoProfile -Command \"Compress-Archive -Path .\\cowork-app\\* -DestinationPath .\\copilot-tenant-cost-cowork-app.zip -Force\"",
+    "check": "node --check src/collect-all.js && node --check src/build-dashboard.js && node --check src/lib/auth.js && node --check src/lib/http.js && node --check src/lib/env.js && node --check src/collectors/agent365AdminCatalog.js && node --check src/collectors/agentUsage.js && node --check src/collectors/azureCostManagement.js && node --check src/collectors/copilotStudioDataverse.js && node --check src/collectors/graphCopilotCost.js && node --check src/collectors/graphCopilotReports.js"
+  }
+}

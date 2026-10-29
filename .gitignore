@@ -1,0 +1,12 @@
+.env
+node_modules/
+
+# Generated outputs
+data/*.json
+dashboard.built.html
+copilot-tenant-cost-cowork-app.zip
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
