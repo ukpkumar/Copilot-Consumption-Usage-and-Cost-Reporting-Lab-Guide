@@ -12,6 +12,12 @@ This sample pulls tenant data from:
 
 Then you can view the unified snapshot in `dashboard.html`.
 
+## Full beginner-friendly lab manual
+
+For detailed click-by-click guidance, use:
+
+- `docs/LAB-HANDS-ON-GUIDE.md`
+
 ## 1) App registration
 
 Create an app registration in your tenant:
