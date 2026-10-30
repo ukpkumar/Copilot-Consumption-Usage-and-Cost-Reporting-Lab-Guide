@@ -201,7 +201,9 @@ function Resolve-Template {
     $resolved = $resolved.Replace($token, [string]$Variables[$key])
   }
 
-  $missing = [regex]::Matches($resolved, "\{[a-zA-Z0-9_]+\}") | ForEach-Object { $_.Value } | Select-Object -Unique
+  $missing = @(
+    [regex]::Matches($resolved, "\{[a-zA-Z0-9_]+\}") | ForEach-Object { $_.Value } | Select-Object -Unique
+  )
   if ($missing.Count -gt 0) {
     throw "Missing template values for: $($missing -join ', ')"
   }
