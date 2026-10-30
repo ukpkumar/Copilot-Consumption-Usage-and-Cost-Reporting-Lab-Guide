@@ -5,6 +5,7 @@ Use this tool to verify any collector-related API URL on demand with the same ap
 Script:
 
 - `tools/Invoke-ApiVerifier.ps1`
+- Interactive wrapper app: `apps/reporting-api-verifier/Invoke-ReportingApiVerifierApp.ps1`
 
 ## What it does
 
@@ -22,6 +23,12 @@ List available presets:
 
 ```powershell
 .\tools\Invoke-ApiVerifier.ps1 -ListPresets
+```
+
+List presets as JSON (for automation/use in apps):
+
+```powershell
+.\tools\Invoke-ApiVerifier.ps1 -ListPresetsJson
 ```
 
 Check tenant credit balance:
@@ -69,6 +76,8 @@ Save output to file:
 ## Parameters
 
 - `-Preset` preset name from `-ListPresets`
+- `-ListPresets` list preset endpoints
+- `-ListPresetsJson` list preset endpoints as JSON
 - `-Url` custom endpoint URL
 - `-Scope` `graph | arm | dataverse | custom` (use graph/arm/dataverse for token audience)
 - `-Method` `GET|POST|PATCH|PUT|DELETE`
@@ -76,6 +85,7 @@ Save output to file:
 - `-BodyJson` raw JSON body
 - `-BodyFile` path to request body JSON file
 - `-OutFile` optional output file path
+- `-JsonOnly` return response envelope as JSON (machine-readable)
 - `-EnvPath` path to `.env` (default `.\.env`)
 
 ## Notes
@@ -83,4 +93,3 @@ Save output to file:
 - `AZURE_SUBSCRIPTION_ID` from `.env` is auto-used for `{subscriptionId}` when needed.
 - `DATAVERSE_URL` from `.env` is auto-used for `{dataverseUrl}` when needed.
 - For POST/PATCH requests, provide `-BodyJson` or `-BodyFile` if endpoint expects a payload.
-

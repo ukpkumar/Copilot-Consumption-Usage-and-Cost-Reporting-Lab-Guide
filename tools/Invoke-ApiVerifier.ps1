@@ -2,6 +2,7 @@
 param(
   [string]$Preset,
   [switch]$ListPresets,
+  [switch]$ListPresetsJson,
   [string]$Url,
   [ValidateSet("GET", "POST", "PATCH", "PUT", "DELETE")]
   [string]$Method = "GET",
@@ -11,7 +12,8 @@ param(
   [string]$BodyFile,
   [string]$EnvPath = ".\.env",
   [hashtable]$Variables = @{},
-  [string]$OutFile
+  [string]$OutFile,
+  [switch]$JsonOnly
 )
 
 Set-StrictMode -Version Latest
@@ -345,6 +347,11 @@ if ($ListPresets) {
   exit 0
 }
 
+if ($ListPresetsJson) {
+  $presets | Select-Object Name, Scope, Method, UrlTemplate, DefaultBody | ConvertTo-Json -Depth 10
+  exit 0
+}
+
 Import-DotEnv -Path $EnvPath
 $tenantId = Get-RequiredEnv -Name "TENANT_ID"
 $clientId = Get-RequiredEnv -Name "CLIENT_ID"
@@ -420,6 +427,11 @@ $output = [pscustomobject]@{
 if ($OutFile) {
   $output | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $OutFile -Encoding UTF8
   Write-Host "Saved output to: $OutFile" -ForegroundColor Cyan
+}
+
+if ($JsonOnly) {
+  $output | ConvertTo-Json -Depth 20
+  exit 0
 }
 
 Write-Host ""
