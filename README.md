@@ -16,6 +16,16 @@ Then you can view the unified snapshot in `dashboard.html`.
 
 - **Documentation index:** [docs/INDEX.md](./docs/INDEX.md)
 - **Full hands-on lab guide:** [docs/LAB-HANDS-ON-GUIDE.md](./docs/LAB-HANDS-ON-GUIDE.md)
+- **Optional lab (Python bootstrap):** [docs/REPO-BOOTSTRAP-WITH-PYTHON.md](./docs/REPO-BOOTSTRAP-WITH-PYTHON.md)
+
+## Identity model (why you might see one app vs two apps)
+
+- **Default lab path (current guide): one app registration** is enough for local device-code collection.
+- **Enterprise automation path (optional): two-app model** is common:
+  1. Collector app registration (Graph/Dataverse/Azure API access)
+  2. Automation host identity (Azure Function managed identity or separate app for unattended runs)
+
+Both are valid. The main lab keeps setup simple with one app.
 
 ## 1) App registration
 

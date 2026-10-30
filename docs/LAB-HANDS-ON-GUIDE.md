@@ -5,6 +5,7 @@ This hands-on lab is designed for beginners and non-experts. Follow the steps in
 ## Table of contents
 
 - [Lab 0 - What you will build](#lab-0---what-you-will-build)
+- [Lab 0.1 - Identity model (one app vs two apps)](#lab-01---identity-model-one-app-vs-two-apps)
 - [Lab 1 - Prepare your machine](#lab-1---prepare-your-machine)
 - [Lab 2 - Register the Entra application](#lab-2---register-the-entra-application)
 - [Lab 3 - Configure Graph permissions](#lab-3---configure-graph-permissions)
@@ -30,6 +31,19 @@ Estimated time:
 
 - Initial setup and first successful run: 45-90 minutes
 - Automation setup: 30-90 minutes
+
+## Lab 0.1 - Identity model (one app vs two apps)
+
+You may see either one or two identities in Entra, depending on deployment style:
+
+1. **One-app model (used in this hands-on lab):**
+   - Single app registration used for local device-code execution.
+2. **Two-app model (common in automation):**
+   - App 1: data collector API identity (Graph/Dataverse/Azure scopes)
+   - App 2: automation host identity (for example, Azure Function managed identity or separate app registration)
+
+If you created two apps yesterday, that is expected for automation architecture.  
+This guide starts with one app so beginners can finish the lab faster.
 
 ## Lab 1 - Prepare your machine
 
@@ -245,4 +259,3 @@ Operational routine:
 3. Review source health
 4. Share artifacts after validation
 5. Keep `.env` local and never commit secrets
-
