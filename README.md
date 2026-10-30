@@ -17,6 +17,7 @@ Then you can view the unified snapshot in `dashboard.html`.
 - **Documentation index:** [docs/INDEX.md](./docs/INDEX.md)
 - **Full hands-on lab guide:** [docs/LAB-HANDS-ON-GUIDE.md](./docs/LAB-HANDS-ON-GUIDE.md)
 - **Optional lab (Python bootstrap):** [docs/REPO-BOOTSTRAP-WITH-PYTHON.md](./docs/REPO-BOOTSTRAP-WITH-PYTHON.md)
+- **Reusable PowerShell API verifier:** [docs/POWERSHELL-API-VERIFIER.md](./docs/POWERSHELL-API-VERIFIER.md)
 
 ## Identity model (why you might see one app vs two apps)
 
