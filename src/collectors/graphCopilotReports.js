@@ -1,4 +1,4 @@
-import { requestJson, requestText } from "../lib/http.js";
+import { listAll, requestJson, requestText } from "../lib/http.js";
 
 const GRAPH_V1_ROOT = "https://graph.microsoft.com/v1.0/copilot/reports";
 const GRAPH_BETA_ROOT = "https://graph.microsoft.com/beta/copilot/reports";
@@ -7,6 +7,12 @@ async function tryRequest(url, token, format) {
   try {
     const data =
       format === "json" ? await requestJson(url, token) : await requestText(url, token);
+    if (format === "json" && Array.isArray(data?.value) && data["@odata.nextLink"]) {
+      const next = new URL(data["@odata.nextLink"], url);
+      if (next.origin !== new URL(url).origin) throw new Error("Report pagination changed API origin.");
+      data.value.push(...await listAll(next.href, token));
+      delete data["@odata.nextLink"];
+    }
     return { ok: true, url, format, data };
   } catch (error) {
     return { ok: false, url, format, error: error.message };

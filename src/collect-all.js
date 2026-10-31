@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
+import { protectGeneratedFile } from "./lib/fileProtection.js";
 import { getDelegatedAccessToken } from "./lib/auth.js";
 import { loadEnvFile, requireEnv } from "./lib/env.js";
 import { collectAgent365AdminCatalog } from "./collectors/agent365AdminCatalog.js";
@@ -18,11 +20,19 @@ function parseUserIds() {
     .filter(Boolean);
 }
 
-function writeOutput(filePath, payload) {
+export function writeOutput(filePath, payload) {
   const fullPath = path.resolve(process.cwd(), filePath);
   const dir = path.dirname(fullPath);
+  const serialized = JSON.stringify(payload, null, 2);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(fullPath, JSON.stringify(payload, null, 2), "utf8");
+  const temporaryPath = `${fullPath}.${randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporaryPath, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    protectGeneratedFile(temporaryPath, fullPath);
+    fs.renameSync(temporaryPath, fullPath);
+  } finally {
+    if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+  }
   return fullPath;
 }
 
@@ -38,7 +48,8 @@ function hasUsableDataverseUrl(value) {
   return Boolean(value && String(value).trim());
 }
 
-async function main() {
+export async function collectSnapshot({ interactive = true, persist = true, outputFile, tokenProvider = getDelegatedAccessToken } = {}) {
+  const getToken = (scope, label) => tokenProvider(scope, label, { interactive });
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const projectRoot = path.resolve(scriptDir, "..");
 
@@ -49,23 +60,26 @@ async function main() {
   requireEnv("CLIENT_ID");
 
   const userIds = parseUserIds();
-  const outputPath = process.env.OUTPUT_PATH || ".\\data\\latest.json";
+  const outputPath = outputFile || process.env.OUTPUT_PATH || ".\\data\\latest.json";
 
-  const graphToken = await getDelegatedAccessToken(
+  const graphToken = await getToken(
     "https://graph.microsoft.com/.default offline_access openid profile",
     "Sign in for Microsoft Graph (Copilot APIs)"
   );
-  const [graphCost, graphReports, agent365AdminCatalog] = await Promise.all([
+  const results = await Promise.allSettled([
     collectGraphCopilotCost(graphToken, userIds),
     collectGraphCopilotReports(graphToken),
     collectAgent365AdminCatalog(graphToken)
   ]);
+  const [graphCost, graphReports, agent365AdminCatalog] = results.map((result) =>
+    result.status === "fulfilled" ? result.value : { ok: false, error: result.reason.message }
+  );
 
   let copilotStudioDataverse;
   if (hasUsableDataverseUrl(process.env.DATAVERSE_URL)) {
     try {
       const dataverseBase = new URL(process.env.DATAVERSE_URL).origin;
-      const dataverseToken = await getDelegatedAccessToken(
+      const dataverseToken = await getToken(
         `${dataverseBase}/.default offline_access openid profile`,
         "Sign in for Dataverse (Copilot Studio analytics)"
       );
@@ -89,7 +103,7 @@ async function main() {
   let azureCost;
   if (hasUsableSubscriptionId(process.env.AZURE_SUBSCRIPTION_ID)) {
     try {
-      const armToken = await getDelegatedAccessToken(
+      const armToken = await getToken(
         "https://management.azure.com/user_impersonation offline_access openid profile",
         "Sign in for Azure Cost Management"
       );
@@ -121,11 +135,16 @@ async function main() {
     }
   };
 
-  const fullOutputPath = writeOutput(outputPath, payload);
-  console.log(`Data snapshot saved to: ${fullOutputPath}`);
+  if (persist) {
+    const fullOutputPath = writeOutput(outputPath, payload);
+    console.log(`Data snapshot saved to: ${fullOutputPath}`);
+  }
+  return payload;
 }
 
-main().catch((error) => {
-  console.error("Collector failed:", error.message);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  collectSnapshot().catch((error) => {
+    console.error("Collector failed:", error.message);
+    process.exitCode = 1;
+  });
+}

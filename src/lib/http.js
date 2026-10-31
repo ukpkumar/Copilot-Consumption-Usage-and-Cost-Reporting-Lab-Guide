@@ -7,7 +7,8 @@ export async function requestJson(url, accessToken, options = {}) {
       "Content-Type": "application/json",
       ...headers
     },
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(60000)
   });
 
   if (response.status === 204) {
@@ -33,7 +34,8 @@ export async function requestText(url, accessToken, options = {}) {
       Authorization: `Bearer ${accessToken}`,
       ...headers
     },
-    body
+    body,
+    signal: AbortSignal.timeout(60000)
   });
 
   const text = await response.text();
@@ -45,9 +47,16 @@ export async function requestText(url, accessToken, options = {}) {
 
 export async function listAll(url, accessToken) {
   const items = [];
+  const origin = new URL(url).origin;
+  const visited = new Set();
   let next = url;
   while (next) {
-    const page = await requestJson(next, accessToken);
+    const nextUrl = new URL(next, url);
+    if (nextUrl.origin !== origin || visited.has(nextUrl.href)) {
+      throw new Error("Invalid or repeated API pagination link.");
+    }
+    visited.add(nextUrl.href);
+    const page = await requestJson(nextUrl.href, accessToken);
     if (page?.value && Array.isArray(page.value)) {
       items.push(...page.value);
     }

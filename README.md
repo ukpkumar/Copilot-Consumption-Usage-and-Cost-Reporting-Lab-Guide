@@ -130,6 +130,34 @@ npm run build:dashboard
 
 Then open `dashboard.built.html`.
 
+### Local automated dashboard and Graph tester
+
+Requires Node.js 22 or newer; no packages need installing. Reuse the existing Entra registration in `.env`—do not add credentials to HTML or browser storage.
+
+```powershell
+# First sign in for each configured resource using the existing collector:
+npm run collect
+# Then start the local dashboard:
+npm start
+```
+
+Open the `http://127.0.0.1:<assigned-port>` URL printed in the terminal. The server binds only to loopback on an automatically assigned port. It collects on startup and every 60 minutes while running; configure `COLLECTION_INTERVAL_MINUTES` (minimum 1) in `.env`. **Collect now** triggers a background run. Concurrent triggers share one run. The page polls status/latest data every 10 seconds and retains the last snapshot when collection fails. A successful save can contain partial data: inspect the dashboard's source status, not just the save timestamp.
+
+Each scheduled run invokes all configured collectors—not just the selected Graph test. Graph collection covers tenant credit balance, spending policies and their service/threshold/recipient settings, configured user balances and service balances, Copilot usage details, user count summary/trend, and package catalog/details. Policy and balance reads are isolated so one denied endpoint does not cancel the others. JSON reports follow same-origin pagination; existing report-version fallbacks remain in place. Write/management preview endpoints are documented, not invoked by this read-only dashboard. Optional resource collectors still require their own configuration and access.
+
+**Graph API test** offers fixed, read-only requests for the signed-in user, tenant credit balance, spending policies, Copilot usage/count/trend reports, and package catalog. It displays HTTP status, duration and sanitized response data. Requests use the same delegated Graph scope as the collectors. No arbitrary URLs, methods, token headers, write operations, or local files are accepted. Redirect URLs (including signed report downloads) and upstream error bodies are not exposed; responses over 1 MiB are rejected. The existing CLI report collector still handles its report fallbacks.
+
+Access/refresh tokens remain in the existing server-side cache under `%USERPROFILE%\.copilot-tenant-cost-dashboard`. The server only reuses/refreshes cached sign-in; it never launches device-code prompts through the browser. If consent, Conditional Access, or refresh-token expiry requires sign-in again, run `npm run collect` in a terminal. This is delegated automation, **not** permanent unattended app-only authentication. Existing Graph delegated permissions, admin consent, tenant licensing, and signed-in user roles still apply; Azure requires appropriate cost-reading roles and Dataverse requires its own access.
+
+Only approved same-origin local API routes are exposed; `.env`, the cache, and arbitrary repository files are not served. Tenant data is still sensitive even without tokens: use a trusted local account, protect the cache/snapshots with filesystem permissions, and do not expose this local sample through port forwarding or a public reverse proxy. Stop with Ctrl+C; collection stops when the process exits. Standalone JSON loading and `build:dashboard` remain available as before.
+
+Validation (mocked APIs, no real tenant calls):
+
+```powershell
+npm test
+npm run check
+```
+
 ## 5) Cowork app package (skill app)
 
 This project now includes a Cowork skill app package at `cowork-app/`:

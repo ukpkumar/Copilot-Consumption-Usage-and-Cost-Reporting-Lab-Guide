@@ -38,57 +38,46 @@ async function readAlertRecipients(accessToken, policyId) {
   return listAll(url, accessToken);
 }
 
+async function capture(request, fallback, errors, key) {
+  try { return await request(); }
+  catch (error) { errors[key] = error.message; return fallback; }
+}
+
 async function readUserDiagnostic(accessToken, userId) {
   const resolved = await resolveUserBalanceKey(accessToken, userId);
   const userPath = encodeURIComponent(resolved.balanceKey);
-  const balance = await requestJson(
-    `${GRAPH_BETA_ROOT}/userBalances/${userPath}`,
-    accessToken
-  );
-  const serviceBalances = await listAll(
-    `${GRAPH_BETA_ROOT}/userBalances/${userPath}/serviceBalances`,
-    accessToken
-  );
+  const errors = {};
+  const [balance, serviceBalances] = await Promise.all([
+    capture(() => requestJson(`${GRAPH_BETA_ROOT}/userBalances/${userPath}`, accessToken), null, errors, "balance"),
+    capture(() => listAll(`${GRAPH_BETA_ROOT}/userBalances/${userPath}/serviceBalances`, accessToken), [], errors, "serviceBalances")
+  ]);
   return {
     userId,
     resolvedUserId: resolved.balanceKey,
     resolvedFrom: resolved.resolvedFrom,
     resolvedUserPrincipalName: resolved.resolvedUserPrincipalName,
     balance,
-    serviceBalances
+    serviceBalances,
+    ...(Object.keys(errors).length ? { errors, error: Object.values(errors).join("; ") } : {})
   };
 }
 
 export async function collectGraphCopilotCost(accessToken, userIds = []) {
-  const tenantCreditBalance = await requestJson(
-    `${GRAPH_BETA_ROOT}/getTenantCreditBalance`,
-    accessToken
-  );
-
-  const spendingPolicies = await listAll(
-    `${GRAPH_BETA_ROOT}/spendingPolicies`,
-    accessToken
-  );
+  const errors = {};
+  const [tenantCreditBalance, spendingPolicies] = await Promise.all([
+    capture(() => requestJson(`${GRAPH_BETA_ROOT}/getTenantCreditBalance`, accessToken), null, errors, "tenantCreditBalance"),
+    capture(() => listAll(`${GRAPH_BETA_ROOT}/spendingPolicies`, accessToken), [], errors, "spendingPolicies")
+  ]);
 
   const policies = [];
   for (const policy of spendingPolicies) {
     const policyId = policy.id;
-    const serviceSettings = await listAll(
-      `${GRAPH_BETA_ROOT}/spendingPolicies/${encodeURIComponent(policyId)}/serviceSettings`,
-      accessToken
-    );
-    const emailThresholdSettings = await requestJson(
-      `${GRAPH_BETA_ROOT}/spendingPolicies/${encodeURIComponent(policyId)}/emailThresholdSettings`,
-      accessToken
-    ).catch((error) => ({
-      error: error.message
-    }));
-    const recipients =
-      emailThresholdSettings && !emailThresholdSettings.error
-        ? await readAlertRecipients(accessToken, policyId).catch((error) => [
-            { error: error.message }
-          ])
-        : [];
+    const policyPath = `${GRAPH_BETA_ROOT}/spendingPolicies/${encodeURIComponent(policyId)}`;
+    const [serviceSettings, emailThresholdSettings, recipients] = await Promise.all([
+      capture(() => listAll(`${policyPath}/serviceSettings`, accessToken), [], errors, `policy:${policyId}:serviceSettings`),
+      capture(() => requestJson(`${policyPath}/emailThresholdSettings`, accessToken), null, errors, `policy:${policyId}:emailThresholdSettings`),
+      capture(() => readAlertRecipients(accessToken, policyId), [], errors, `policy:${policyId}:recipients`)
+    ]);
 
     policies.push({
       policy,
@@ -108,8 +97,10 @@ export async function collectGraphCopilotCost(accessToken, userIds = []) {
   }
 
   return {
+    ok: Object.keys(errors).length === 0,
     tenantCreditBalance,
     policies,
-    userDiagnostics
+    userDiagnostics,
+    ...(Object.keys(errors).length ? { errors, error: Object.values(errors).join("; ") } : {})
   };
 }

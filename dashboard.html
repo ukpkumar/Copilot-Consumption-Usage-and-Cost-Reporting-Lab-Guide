@@ -298,6 +298,18 @@
         <button id="clearBtn">Clear</button>
       </div>
 
+      <section id="liveControls" class="section" hidden>
+        <h2>Automated tenant collection</h2>
+        <button id="collectBtn">Collect now</button>
+        <p id="collectionStatus" class="status" aria-live="polite"></p>
+        <h2>Graph API test (read-only)</h2>
+        <p>Uses the existing app's cached delegated sign-in on the local server. No tokens or secrets are sent to this page.</p>
+        <label for="graphTest">Endpoint</label>
+        <select id="graphTest"></select>
+        <button id="graphTestBtn">Run test</button>
+        <pre id="graphResult" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+      </section>
+
       <div id="status" class="status">Load <span class="mono">data\latest.json</span> exported by the collector.</div>
 
       <div class="grid section">
@@ -715,8 +727,8 @@
         const sourceHealthRows = [
           {
             source: "Graph Copilot Cost Management",
-            status: policies.length ? "ok" : "warn",
-            notes: policies.length ? `${policies.length} policies loaded` : "No policies returned"
+            status: sourceCost?.ok === false ? "error" : policies.length ? "ok" : "warn",
+            notes: `${policies.length} policies loaded${sourceCost?.error ? ` | ${asText(sourceCost.error)}` : ""}`
           },
           {
             source: "Graph Copilot Reports",
@@ -935,7 +947,7 @@
 
       async function loadSample() {
         try {
-          const response = await fetch("./data/latest.json");
+          const response = await fetch(document.getElementById("liveControls").hidden ? "./data/latest.json" : "/api/snapshot");
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           state.data = await response.json();
           render();
@@ -965,6 +977,71 @@
         render();
         setStatus("Cleared. Load a new data snapshot.");
       });
+
+      async function dashboardApi(url, method = "GET") {
+        const response = await fetch(url, {
+          method,
+          headers: method === "POST" ? { "X-Dashboard-Request": "1" } : {},
+          signal: AbortSignal.timeout(45000)
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+        return payload;
+      }
+
+      (async function connectLocalDashboard() {
+        if (location.protocol !== "http:" || location.hostname !== "127.0.0.1") return;
+        let lastSnapshot;
+        const collectBtn = document.getElementById("collectBtn");
+        const collectionStatus = document.getElementById("collectionStatus");
+        async function refreshLive() {
+          try {
+            const job = await dashboardApi("/api/status");
+            collectBtn.disabled = job.running;
+            collectionStatus.textContent = `${job.running ? "Collecting…" : "Idle"} | Interval: ${job.intervalMinutes} minutes | Last attempt: ${job.lastAttemptAt || "none"} | Last saved: ${job.lastSuccessAt || "none"}${job.error ? ` | ${job.error}` : ""}`;
+            try {
+              const snapshot = await dashboardApi("/api/snapshot");
+              if (snapshot.generatedAt !== lastSnapshot) {
+                lastSnapshot = snapshot.generatedAt;
+                state.data = snapshot;
+                render();
+                setStatus("Loaded local server snapshot. Check source status below for unavailable APIs.", "ok");
+              }
+            } catch (error) { setStatus(error.message, "warn"); }
+          } catch (error) { collectionStatus.textContent = error.message; }
+        }
+        try {
+          const tests = await dashboardApi("/api/graph/tests");
+          document.getElementById("liveControls").hidden = false;
+          loadSampleBtn.textContent = "Load latest snapshot";
+          const select = document.getElementById("graphTest");
+          for (const [id, test] of Object.entries(tests)) {
+            const option = document.createElement("option");
+            option.value = id;
+            option.textContent = `${test.label}: ${test.path}`;
+            select.appendChild(option);
+          }
+          collectBtn.addEventListener("click", async () => {
+            collectBtn.disabled = true;
+            try { await dashboardApi("/api/collect", "POST"); }
+            catch (error) { collectionStatus.textContent = error.message; }
+            await refreshLive();
+          });
+          const testBtn = document.getElementById("graphTestBtn");
+          testBtn.addEventListener("click", async () => {
+            testBtn.disabled = true;
+            const result = document.getElementById("graphResult");
+            result.textContent = "Testing…";
+            try { result.textContent = JSON.stringify(await dashboardApi(`/api/graph/test/${encodeURIComponent(select.value)}`, "POST"), null, 2); }
+            catch (error) { result.textContent = error.message; }
+            finally { testBtn.disabled = false; }
+          });
+          await refreshLive();
+          // Schedule after completion so slow requests cannot overlap polling.
+          async function poll() { await refreshLive(); setTimeout(poll, 10000); }
+          setTimeout(poll, 10000);
+        } catch { /* Keep standalone and ordinary static hosting behavior unchanged. */ }
+      })();
 
       (function loadEmbeddedSnapshot() {
         const embedded = document.getElementById("embeddedSnapshot");

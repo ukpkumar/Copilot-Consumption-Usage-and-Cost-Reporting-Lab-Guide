@@ -2,6 +2,7 @@ import { requireEnv } from "./env.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { protectGeneratedFile } from "./fileProtection.js";
 
 const DEVICE_CODE_ENDPOINT_TEMPLATE =
   "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/devicecode";
@@ -90,6 +91,7 @@ function saveTokenCacheToDisk() {
 
   fs.mkdirSync(path.dirname(TOKEN_CACHE_PATH), { recursive: true });
   fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify({ version: 1, entries }, null, 2), "utf8");
+  protectGeneratedFile(TOKEN_CACHE_PATH);
 }
 
 function parseTokenResponse(json, fallbackRefreshToken) {
@@ -116,6 +118,7 @@ function shouldReuseToken(token) {
 
 async function startDeviceCodeFlow(tenantId, clientId, scope) {
   const response = await fetch(endpoint(DEVICE_CODE_ENDPOINT_TEMPLATE, tenantId), {
+    signal: AbortSignal.timeout(30000),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -145,6 +148,7 @@ async function pollForToken(tenantId, clientId, deviceCodePayload) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
 
     const tokenResponse = await fetch(tokenUrl, {
+      signal: AbortSignal.timeout(30000),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -183,6 +187,7 @@ async function pollForToken(tenantId, clientId, deviceCodePayload) {
 async function refreshAccessToken(tenantId, clientId, scope, refreshToken) {
   const tokenUrl = endpoint(TOKEN_ENDPOINT_TEMPLATE, tenantId);
   const response = await fetch(tokenUrl, {
+    signal: AbortSignal.timeout(30000),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -209,7 +214,7 @@ async function refreshAccessToken(tenantId, clientId, scope, refreshToken) {
   return parseTokenResponse(json, refreshToken);
 }
 
-export async function getDelegatedAccessToken(scope, promptLabel = "Sign in") {
+export async function getDelegatedAccessToken(scope, promptLabel = "Sign in", { interactive = true } = {}) {
   const { tenantId, clientId } = readBaseConfig();
   const normalizedScope = parseScopes(scope).join(" ");
   const cacheKey = buildCacheKey(tenantId, clientId, normalizedScope);
@@ -234,6 +239,10 @@ export async function getDelegatedAccessToken(scope, promptLabel = "Sign in") {
       TOKEN_CACHE.delete(cacheKey);
       saveTokenCacheToDisk();
     }
+  }
+
+  if (!interactive) {
+    throw new Error("Cached sign-in unavailable. Run npm run collect in a terminal to sign in again.");
   }
 
   const deviceCodePayload = await startDeviceCodeFlow(tenantId, clientId, normalizedScope);
