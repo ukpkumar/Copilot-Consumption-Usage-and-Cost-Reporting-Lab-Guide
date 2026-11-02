@@ -21,6 +21,7 @@ Then you can view the unified snapshot in `dashboard.html`.
 - **Interactive reporting verifier app:** [apps/reporting-api-verifier/README.md](./apps/reporting-api-verifier/README.md)
 - **Desktop GUI reporting verifier app:** [apps/reporting-api-verifier-gui/README.md](./apps/reporting-api-verifier-gui/README.md)
 - **Python GUI reporting verifier app:** [apps/reporting-api-verifier-python/README.md](./apps/reporting-api-verifier-python/README.md)
+- **Desktop shortcuts creator (one-click launch):** `tools/Create-ApiVerifierShortcuts.ps1`
 
 ## Identity model (why you might see one app vs two apps)
 

@@ -17,13 +17,18 @@ This is a second local app (Python) with interactive tenant sign-in and on-deman
 cd "C:\Users\prasuk\OneDrive - Microsoft\Documents\Microsoft Scout\copilot-tenant-cost-dashboard"
 python -m pip install -r .\apps\reporting-api-verifier-python\requirements.txt
 copy .\apps\reporting-api-verifier-python\config.sample.json .\apps\reporting-api-verifier-python\config.local.json
+copy .\apps\reporting-api-verifier-python\credentials.sample.json .\apps\reporting-api-verifier-python\credentials.local.json
 ```
 
-Edit `config.local.json` and set:
+Edit `credentials.local.json` and set:
 
 - `tenantId`
 - `clientId`
 - `clientSecret` (needed for AppSecret mode)
+
+Edit `config.local.json` and set:
+
+- `credentialsFile` (path to your credentials JSON)
 - optional `subscriptionId`
 - optional `dataverseUrl`
 
@@ -31,6 +36,16 @@ Edit `config.local.json` and set:
 
 ```powershell
 python .\apps\reporting-api-verifier-python\launch.py --config .\apps\reporting-api-verifier-python\config.local.json
+```
+
+Double-click launcher:
+
+- `apps/reporting-api-verifier-python/Launch-ReportingApiVerifierPythonGUI.cmd`
+
+Desktop shortcut (one-time setup):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Create-ApiVerifierShortcuts.ps1
 ```
 
 For device sign-in:
@@ -50,5 +65,5 @@ If you don't want any interactive prompt, set auth mode to `AppSecret`.
 
 ## Notes
 
-- Keep `config.local.json` private; do not commit it.
+- Keep `config.local.json` and `credentials.local.json` private; do not commit them.
 - Some Graph Copilot endpoints may require delegated auth even if app-only token is valid.

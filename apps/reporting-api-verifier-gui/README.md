@@ -22,12 +22,16 @@ This is a local desktop GUI app to test reporting endpoints on demand with your 
 
 ```powershell
 copy .\apps\reporting-api-verifier-gui\config.sample.json .\apps\reporting-api-verifier-gui\config.local.json
+copy .\apps\reporting-api-verifier-gui\credentials.sample.json .\apps\reporting-api-verifier-gui\credentials.local.json
 ```
 
-2. Edit `config.local.json` and set:
+2. Edit `credentials.local.json` and set:
    - `tenantId`
    - `clientId`
    - `clientSecret`
+
+3. Edit `config.local.json` and set:
+   - `credentialsFile` (path to your credentials JSON)
    - optional `subscriptionId`
    - optional `dataverseUrl`
 
@@ -36,6 +40,16 @@ copy .\apps\reporting-api-verifier-gui\config.sample.json .\apps\reporting-api-v
 ```powershell
 cd "C:\Users\prasuk\OneDrive - Microsoft\Documents\Microsoft Scout\copilot-tenant-cost-dashboard"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\apps\reporting-api-verifier-gui\Launch-ApiVerifierGui.ps1 -ConfigPath .\apps\reporting-api-verifier-gui\config.local.json
+```
+
+Double-click launcher:
+
+- `apps/reporting-api-verifier-gui/Launch-ReportingApiVerifierGUI.cmd`
+
+Desktop shortcut (one-time setup):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Create-ApiVerifierShortcuts.ps1
 ```
 
 ## Output files
@@ -47,5 +61,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\apps\reporting-api-verifie
 ## Notes
 
 - Some Graph Copilot endpoints can return `403` in app-only mode even with permissions; try `DelegatedDeviceCode` when needed.
-- Do not commit `config.local.json` because it contains secrets.
-
+- Do not commit `config.local.json` or `credentials.local.json`.

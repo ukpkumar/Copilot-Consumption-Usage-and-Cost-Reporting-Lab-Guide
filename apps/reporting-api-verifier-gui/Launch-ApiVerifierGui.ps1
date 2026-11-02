@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$ConfigPath = ".\apps\reporting-api-verifier-gui\config.local.json",
+  [string]$CredentialsPath,
   [switch]$ListPresets
 )
 
@@ -50,6 +51,19 @@ function Read-Config {
   $resolved = Resolve-PathSafe -PathValue $PathValue -BasePath $RepoRoot
   if (-not (Test-Path -LiteralPath $resolved)) {
     throw "Config file not found: $resolved"
+  }
+  $cfg = Get-Content -Raw -LiteralPath $resolved | ConvertFrom-Json
+  return [pscustomobject]@{
+    Path = $resolved
+    Value = $cfg
+  }
+}
+
+function Read-Credentials {
+  param([string]$PathValue, [string]$RepoRoot)
+  $resolved = Resolve-PathSafe -PathValue $PathValue -BasePath $RepoRoot
+  if (-not (Test-Path -LiteralPath $resolved)) {
+    throw "Credentials file not found: $resolved"
   }
   $cfg = Get-Content -Raw -LiteralPath $resolved | ConvertFrom-Json
   return [pscustomobject]@{
@@ -347,6 +361,10 @@ $repoRoot = (Resolve-Path (Join-Path $scriptDir "..\..")).Path
 $cfgWrap = Read-Config -PathValue $ConfigPath -RepoRoot $repoRoot
 $cfg = $cfgWrap.Value
 
+$credPathValue = if ($CredentialsPath) { $CredentialsPath } elseif ($cfg.credentialsFile) { [string]$cfg.credentialsFile } else { ".\apps\reporting-api-verifier-gui\credentials.local.json" }
+$credWrap = Read-Credentials -PathValue $credPathValue -RepoRoot $repoRoot
+$cred = $credWrap.Value
+
 $baseVars = @{}
 if ($cfg.subscriptionId) { $baseVars["subscriptionId"] = [string]$cfg.subscriptionId }
 if ($cfg.dataverseUrl) { $baseVars["dataverseUrl"] = ([string]$cfg.dataverseUrl).TrimEnd("/") }
@@ -369,9 +387,15 @@ $lblConfig.AutoSize = $true
 $lblConfig.Location = New-Object System.Drawing.Point(12, 12)
 $form.Controls.Add($lblConfig)
 
+$lblCred = New-Object System.Windows.Forms.Label
+$lblCred.Text = "Credentials: $($credWrap.Path)"
+$lblCred.AutoSize = $true
+$lblCred.Location = New-Object System.Drawing.Point(12, 28)
+$form.Controls.Add($lblCred)
+
 $lblAuth = New-Object System.Windows.Forms.Label
 $lblAuth.Text = "Auth"
-$lblAuth.Location = New-Object System.Drawing.Point(12, 45)
+$lblAuth.Location = New-Object System.Drawing.Point(12, 62)
 $lblAuth.AutoSize = $true
 $form.Controls.Add($lblAuth)
 
@@ -379,19 +403,19 @@ $cmbAuth = New-Object System.Windows.Forms.ComboBox
 $cmbAuth.DropDownStyle = "DropDownList"
 $cmbAuth.Items.AddRange(@("AppSecret", "DelegatedDeviceCode"))
 $cmbAuth.SelectedItem = if ($cfg.defaultAuthMode) { [string]$cfg.defaultAuthMode } else { "AppSecret" }
-$cmbAuth.Location = New-Object System.Drawing.Point(55, 42)
+$cmbAuth.Location = New-Object System.Drawing.Point(55, 59)
 $cmbAuth.Width = 170
 $form.Controls.Add($cmbAuth)
 
 $lblPreset = New-Object System.Windows.Forms.Label
 $lblPreset.Text = "Preset"
-$lblPreset.Location = New-Object System.Drawing.Point(245, 45)
+$lblPreset.Location = New-Object System.Drawing.Point(245, 62)
 $lblPreset.AutoSize = $true
 $form.Controls.Add($lblPreset)
 
 $cmbPreset = New-Object System.Windows.Forms.ComboBox
 $cmbPreset.DropDownStyle = "DropDownList"
-$cmbPreset.Location = New-Object System.Drawing.Point(295, 42)
+$cmbPreset.Location = New-Object System.Drawing.Point(295, 59)
 $cmbPreset.Width = 420
 $cmbPreset.Items.Add("custom")
 foreach ($p in $presets) { [void]$cmbPreset.Items.Add($p.Name) }
@@ -400,7 +424,7 @@ $form.Controls.Add($cmbPreset)
 
 $lblMethod = New-Object System.Windows.Forms.Label
 $lblMethod.Text = "Method"
-$lblMethod.Location = New-Object System.Drawing.Point(735, 45)
+$lblMethod.Location = New-Object System.Drawing.Point(735, 62)
 $lblMethod.AutoSize = $true
 $form.Controls.Add($lblMethod)
 
@@ -408,13 +432,13 @@ $cmbMethod = New-Object System.Windows.Forms.ComboBox
 $cmbMethod.DropDownStyle = "DropDownList"
 $cmbMethod.Items.AddRange(@("GET","POST","PATCH","PUT","DELETE"))
 $cmbMethod.SelectedItem = "GET"
-$cmbMethod.Location = New-Object System.Drawing.Point(792, 42)
+$cmbMethod.Location = New-Object System.Drawing.Point(792, 59)
 $cmbMethod.Width = 95
 $form.Controls.Add($cmbMethod)
 
 $lblScope = New-Object System.Windows.Forms.Label
 $lblScope.Text = "Scope"
-$lblScope.Location = New-Object System.Drawing.Point(907, 45)
+$lblScope.Location = New-Object System.Drawing.Point(907, 62)
 $lblScope.AutoSize = $true
 $form.Controls.Add($lblScope)
 
@@ -422,41 +446,41 @@ $cmbScope = New-Object System.Windows.Forms.ComboBox
 $cmbScope.DropDownStyle = "DropDownList"
 $cmbScope.Items.AddRange(@("graph","arm","dataverse"))
 $cmbScope.SelectedItem = "graph"
-$cmbScope.Location = New-Object System.Drawing.Point(955, 42)
+$cmbScope.Location = New-Object System.Drawing.Point(955, 59)
 $cmbScope.Width = 110
 $form.Controls.Add($cmbScope)
 
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = "Run"
-$btnRun.Location = New-Object System.Drawing.Point(1088, 40)
+$btnRun.Location = New-Object System.Drawing.Point(1088, 57)
 $btnRun.Width = 75
 $form.Controls.Add($btnRun)
 
 $btnOpenOutput = New-Object System.Windows.Forms.Button
 $btnOpenOutput.Text = "Open Output"
-$btnOpenOutput.Location = New-Object System.Drawing.Point(1170, 40)
+$btnOpenOutput.Location = New-Object System.Drawing.Point(1170, 57)
 $btnOpenOutput.Width = 90
 $form.Controls.Add($btnOpenOutput)
 
 $lblUrl = New-Object System.Windows.Forms.Label
 $lblUrl.Text = "URL"
-$lblUrl.Location = New-Object System.Drawing.Point(12, 80)
+$lblUrl.Location = New-Object System.Drawing.Point(12, 98)
 $lblUrl.AutoSize = $true
 $form.Controls.Add($lblUrl)
 
 $txtUrl = New-Object System.Windows.Forms.TextBox
-$txtUrl.Location = New-Object System.Drawing.Point(55, 77)
+$txtUrl.Location = New-Object System.Drawing.Point(55, 95)
 $txtUrl.Width = 1205
 $form.Controls.Add($txtUrl)
 
 $lblVars = New-Object System.Windows.Forms.Label
 $lblVars.Text = "Variables JSON"
-$lblVars.Location = New-Object System.Drawing.Point(12, 112)
+$lblVars.Location = New-Object System.Drawing.Point(12, 130)
 $lblVars.AutoSize = $true
 $form.Controls.Add($lblVars)
 
 $txtVars = New-Object System.Windows.Forms.TextBox
-$txtVars.Location = New-Object System.Drawing.Point(12, 132)
+$txtVars.Location = New-Object System.Drawing.Point(12, 150)
 $txtVars.Width = 620
 $txtVars.Height = 115
 $txtVars.Multiline = $true
@@ -467,12 +491,12 @@ $form.Controls.Add($txtVars)
 
 $lblBody = New-Object System.Windows.Forms.Label
 $lblBody.Text = "Body JSON"
-$lblBody.Location = New-Object System.Drawing.Point(640, 112)
+$lblBody.Location = New-Object System.Drawing.Point(640, 130)
 $lblBody.AutoSize = $true
 $form.Controls.Add($lblBody)
 
 $txtBody = New-Object System.Windows.Forms.TextBox
-$txtBody.Location = New-Object System.Drawing.Point(640, 132)
+$txtBody.Location = New-Object System.Drawing.Point(640, 150)
 $txtBody.Width = 620
 $txtBody.Height = 115
 $txtBody.Multiline = $true
@@ -482,12 +506,12 @@ $form.Controls.Add($txtBody)
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Status: idle"
-$lblStatus.Location = New-Object System.Drawing.Point(12, 256)
+$lblStatus.Location = New-Object System.Drawing.Point(12, 274)
 $lblStatus.AutoSize = $true
 $form.Controls.Add($lblStatus)
 
 $txtResponse = New-Object System.Windows.Forms.TextBox
-$txtResponse.Location = New-Object System.Drawing.Point(12, 280)
+$txtResponse.Location = New-Object System.Drawing.Point(12, 298)
 $txtResponse.Width = 1248
 $txtResponse.Height = 550
 $txtResponse.Multiline = $true
@@ -525,10 +549,14 @@ $btnRun.Add_Click({
     $lblStatus.Text = "Status: running..."
     $form.Refresh()
 
-    $tenantId = [string]$cfg.tenantId
-    $clientId = [string]$cfg.clientId
+    $tenantId = [string]$cred.tenantId
+    if (-not $tenantId) { $tenantId = [string]$cfg.tenantId }
+    $clientId = [string]$cred.clientId
+    if (-not $clientId) { $clientId = [string]$cfg.clientId }
+    $clientSecret = [string]$cred.clientSecret
+    if (-not $clientSecret) { $clientSecret = [string]$cfg.clientSecret }
     if ([string]::IsNullOrWhiteSpace($tenantId) -or [string]::IsNullOrWhiteSpace($clientId)) {
-      throw "tenantId/clientId are required in config JSON."
+      throw "tenantId/clientId are required in credentials JSON."
     }
 
     $authMode = [string]$cmbAuth.SelectedItem
@@ -545,13 +573,18 @@ $btnRun.Add_Click({
       $parsedVars = ConvertTo-HashtableValue -Value ($txtVars.Text | ConvertFrom-Json)
       foreach ($k in $parsedVars.Keys) { $vars[$k] = $parsedVars[$k] }
     }
+    foreach ($sensitive in @("tenantId","clientId","clientSecret")) {
+      if ($vars.ContainsKey($sensitive)) {
+        [void]$vars.Remove($sensitive)
+      }
+    }
     $vars = Merge-Variables -BaseVars $baseVars -Override $vars
 
     $resolvedUrl = Resolve-Template -Template $urlTemplate -Variables $vars
     $scopeString = Get-ScopeString -ScopeKind $scope -DataverseUrl ([string]$vars["dataverseUrl"]) -AuthMode $authMode
 
     $token = if ($authMode -eq "AppSecret") {
-      Get-AccessTokenAppSecret -TenantId $tenantId -ClientId $clientId -ClientSecret ([string]$cfg.clientSecret) -Scope $scopeString
+      Get-AccessTokenAppSecret -TenantId $tenantId -ClientId $clientId -ClientSecret $clientSecret -Scope $scopeString
     } else {
       Get-AccessTokenDeviceCode -TenantId $tenantId -ClientId $clientId -Scope $scopeString
     }

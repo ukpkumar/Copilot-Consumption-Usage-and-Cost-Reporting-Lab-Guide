@@ -6,9 +6,11 @@ data/*.json
 dashboard.built.html
 copilot-tenant-cost-cowork-app.zip
 apps/reporting-api-verifier-gui/config.local.json
+apps/reporting-api-verifier-gui/credentials.local.json
 apps/reporting-api-verifier-gui/output/
 apps/reporting-api-verifier/output/
 apps/reporting-api-verifier-python/config.local.json
+apps/reporting-api-verifier-python/credentials.local.json
 apps/reporting-api-verifier-python/output/
 
 # Logs

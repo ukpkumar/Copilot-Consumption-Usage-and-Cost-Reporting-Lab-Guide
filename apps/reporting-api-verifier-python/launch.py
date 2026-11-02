@@ -70,6 +70,7 @@ PRESETS = [
 def parse_args():
     parser = argparse.ArgumentParser(description="Reporting API Verifier GUI (Python)")
     parser.add_argument("--config", default="apps/reporting-api-verifier-python/config.local.json")
+    parser.add_argument("--credentials")
     parser.add_argument("--list-presets", action="store_true")
     return parser.parse_args()
 
@@ -81,6 +82,15 @@ def load_config(path_str: str, repo_root: Path) -> dict:
     if not cfg_path.exists():
         raise FileNotFoundError(f"Config file not found: {cfg_path}")
     return json.loads(cfg_path.read_text(encoding="utf-8"))
+
+
+def load_json_file(path_str: str, repo_root: Path, label: str) -> tuple[dict, Path]:
+    cfg_path = Path(path_str)
+    if not cfg_path.is_absolute():
+        cfg_path = (repo_root / cfg_path).resolve()
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"{label} file not found: {cfg_path}")
+    return json.loads(cfg_path.read_text(encoding="utf-8")), cfg_path
 
 
 def resolve_template(template: str, variables: dict) -> str:
@@ -218,12 +228,14 @@ def main():
 
     repo_root = Path(__file__).resolve().parents[2]
     config = load_config(args.config, repo_root)
+    cred_path = args.credentials or config.get("credentialsFile") or "apps/reporting-api-verifier-python/credentials.local.json"
+    credentials, resolved_cred_path = load_json_file(str(cred_path), repo_root, "Credentials")
 
-    tenant_id = str(config.get("tenantId", "")).strip()
-    client_id = str(config.get("clientId", "")).strip()
-    client_secret = str(config.get("clientSecret", "") or "")
+    tenant_id = str(credentials.get("tenantId", "") or config.get("tenantId", "")).strip()
+    client_id = str(credentials.get("clientId", "") or config.get("clientId", "")).strip()
+    client_secret = str(credentials.get("clientSecret", "") or config.get("clientSecret", "") or "")
     if not tenant_id or not client_id:
-        raise RuntimeError("tenantId and clientId are required in config JSON")
+        raise RuntimeError("tenantId and clientId are required in credentials JSON")
 
     base_vars = {}
     if config.get("subscriptionId"):
@@ -240,45 +252,46 @@ def main():
     root.geometry("1280x860")
 
     Label(root, text=f"Config: {Path(args.config)}").place(x=12, y=10)
+    Label(root, text=f"Credentials: {resolved_cred_path}").place(x=12, y=28)
 
-    Label(root, text="Auth").place(x=12, y=40)
+    Label(root, text="Auth").place(x=12, y=60)
     auth_var = StringVar(value=config.get("defaultAuthMode", "AppSecret"))
     auth_combo = ttk.Combobox(root, values=["AppSecret", "DelegatedDeviceCode"], textvariable=auth_var, state="readonly", width=22)
-    auth_combo.place(x=55, y=38)
+    auth_combo.place(x=55, y=58)
 
-    Label(root, text="Preset").place(x=260, y=40)
+    Label(root, text="Preset").place(x=260, y=60)
     preset_var = StringVar(value="custom")
     preset_combo = ttk.Combobox(root, values=["custom"] + [p["name"] for p in PRESETS], textvariable=preset_var, state="readonly", width=46)
-    preset_combo.place(x=305, y=38)
+    preset_combo.place(x=305, y=58)
 
-    Label(root, text="Method").place(x=735, y=40)
+    Label(root, text="Method").place(x=735, y=60)
     method_var = StringVar(value="GET")
     method_combo = ttk.Combobox(root, values=["GET", "POST", "PATCH", "PUT", "DELETE"], textvariable=method_var, state="readonly", width=10)
-    method_combo.place(x=790, y=38)
+    method_combo.place(x=790, y=58)
 
-    Label(root, text="Scope").place(x=890, y=40)
+    Label(root, text="Scope").place(x=890, y=60)
     scope_var = StringVar(value="graph")
     scope_combo = ttk.Combobox(root, values=["graph", "arm", "dataverse"], textvariable=scope_var, state="readonly", width=12)
-    scope_combo.place(x=940, y=38)
+    scope_combo.place(x=940, y=58)
 
-    Label(root, text="URL").place(x=12, y=73)
+    Label(root, text="URL").place(x=12, y=93)
     url_entry = Entry(root, width=175)
-    url_entry.place(x=55, y=72)
+    url_entry.place(x=55, y=92)
 
-    Label(root, text="Variables JSON").place(x=12, y=105)
+    Label(root, text="Variables JSON").place(x=12, y=125)
     vars_text = Text(root, width=74, height=8)
-    vars_text.place(x=12, y=125)
+    vars_text.place(x=12, y=145)
     vars_text.insert("1.0", json.dumps(base_vars, indent=2))
 
-    Label(root, text="Body JSON").place(x=640, y=105)
+    Label(root, text="Body JSON").place(x=640, y=125)
     body_text = Text(root, width=74, height=8)
-    body_text.place(x=640, y=125)
+    body_text.place(x=640, y=145)
 
     status_var = StringVar(value="Status: idle")
-    Label(root, textvariable=status_var).place(x=12, y=275)
+    Label(root, textvariable=status_var).place(x=12, y=295)
 
     output_text = Text(root, width=180, height=32)
-    output_text.place(x=12, y=300)
+    output_text.place(x=12, y=320)
 
     def on_preset_change(_evt=None):
         name = preset_var.get()
@@ -318,18 +331,20 @@ def main():
             user_vars_raw = vars_text.get("1.0", END).strip()
             if user_vars_raw:
                 vars_obj.update(json.loads(user_vars_raw))
+            for sensitive_key in ("tenantId", "clientId", "clientSecret"):
+                vars_obj.pop(sensitive_key, None)
 
-            effective_tenant_id = str(vars_obj.get("tenantId") or tenant_id).strip()
-            effective_client_id = str(vars_obj.get("clientId") or client_id).strip()
-            effective_client_secret = str(vars_obj.get("clientSecret") or client_secret or "").strip()
+            effective_tenant_id = tenant_id
+            effective_client_id = client_id
+            effective_client_secret = str(client_secret or "").strip()
 
             if not effective_tenant_id or effective_tenant_id.lower() == "your-tenant-id-guid":
-                raise RuntimeError("tenantId is missing or placeholder. Update config.local.json or Variables JSON.")
+                raise RuntimeError("tenantId is missing or placeholder. Update credentials.local.json.")
             if not effective_client_id or effective_client_id.lower() == "your-app-client-id-guid":
-                raise RuntimeError("clientId is missing or placeholder. Update config.local.json or Variables JSON.")
+                raise RuntimeError("clientId is missing or placeholder. Update credentials.local.json.")
             if auth_mode == "AppSecret":
                 if not effective_client_secret or effective_client_secret.lower() == "your-client-secret":
-                    raise RuntimeError("clientSecret is missing or placeholder for AppSecret mode.")
+                    raise RuntimeError("clientSecret is missing or placeholder for AppSecret mode in credentials.local.json.")
 
             resolved_url = resolve_template(template, vars_obj)
             scope = get_scope(scope_kind, auth_mode, vars_obj.get("dataverseUrl"))
@@ -369,8 +384,8 @@ def main():
     def run_request_async():
         threading.Thread(target=run_request, daemon=True).start()
 
-    Button(root, text="Run", command=run_request_async, width=10).place(x=1070, y=36)
-    Button(root, text="Open Output", command=open_output_folder, width=12).place(x=1160, y=36)
+    Button(root, text="Run", command=run_request_async, width=10).place(x=1070, y=56)
+    Button(root, text="Open Output", command=open_output_folder, width=12).place(x=1160, y=56)
 
     root.mainloop()
 
