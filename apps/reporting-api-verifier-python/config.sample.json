@@ -1,0 +1,10 @@
+{
+  "tenantId": "your-tenant-id-guid",
+  "clientId": "your-app-client-id-guid",
+  "clientSecret": "your-client-secret",
+  "defaultAuthMode": "DelegatedDeviceCode",
+  "subscriptionId": "your-azure-subscription-id-guid",
+  "dataverseUrl": "https://yourorg.crm.dynamics.com",
+  "outputDir": "apps/reporting-api-verifier-python/output"
+}
+
