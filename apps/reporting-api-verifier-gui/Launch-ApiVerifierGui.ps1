@@ -69,6 +69,33 @@ function Merge-Variables {
   return $merged
 }
 
+function ConvertTo-HashtableValue {
+  param([object]$Value)
+  if ($null -eq $Value) { return $null }
+  if ($Value -is [System.Management.Automation.PSCustomObject]) {
+    $h = @{}
+    foreach ($p in $Value.PSObject.Properties) {
+      $h[$p.Name] = ConvertTo-HashtableValue -Value $p.Value
+    }
+    return $h
+  }
+  if ($Value -is [System.Collections.IDictionary]) {
+    $h = @{}
+    foreach ($k in $Value.Keys) {
+      $h[[string]$k] = ConvertTo-HashtableValue -Value $Value[$k]
+    }
+    return $h
+  }
+  if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+    $list = New-Object System.Collections.ArrayList
+    foreach ($item in $Value) {
+      [void]$list.Add((ConvertTo-HashtableValue -Value $item))
+    }
+    return ,$list.ToArray()
+  }
+  return $Value
+}
+
 function Resolve-Template {
   param([string]$Template, [hashtable]$Variables)
   $result = $Template
@@ -515,7 +542,7 @@ $btnRun.Add_Click({
 
     $vars = @{}
     if (-not [string]::IsNullOrWhiteSpace($txtVars.Text)) {
-      $parsedVars = $txtVars.Text | ConvertFrom-Json -AsHashtable
+      $parsedVars = ConvertTo-HashtableValue -Value ($txtVars.Text | ConvertFrom-Json)
       foreach ($k in $parsedVars.Keys) { $vars[$k] = $parsedVars[$k] }
     }
     $vars = Merge-Variables -BaseVars $baseVars -Override $vars
