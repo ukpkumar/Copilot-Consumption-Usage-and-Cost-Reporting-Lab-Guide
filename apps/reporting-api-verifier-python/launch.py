@@ -122,11 +122,26 @@ def acquire_token(auth_mode: str, tenant_id: str, client_id: str, client_secret:
     if "user_code" not in flow:
         raise RuntimeError("Failed to initiate device flow")
     msg = flow.get("message", "Complete device code sign-in.")
+    verification_uri = flow.get("verification_uri", "https://login.microsoft.com/device")
+    verification_uri_complete = flow.get("verification_uri_complete")
+    user_code = flow.get("user_code", "")
     try:
-        webbrowser.open(flow.get("verification_uri", "https://login.microsoft.com/device"))
+        if user_code:
+            parent_window.clipboard_clear()
+            parent_window.clipboard_append(user_code)
+            parent_window.update()
     except Exception:
         pass
-    messagebox.showinfo("Device Sign-in Required", msg, parent=parent_window)
+    try:
+        webbrowser.open(verification_uri_complete or verification_uri)
+    except Exception:
+        pass
+    hint = f"{msg}\n\nThe device code has been copied to your clipboard."
+    if verification_uri_complete:
+        hint += "\nA browser tab has also been opened with the code pre-filled when supported."
+    else:
+        hint += "\nA browser tab has been opened at the device sign-in page."
+    messagebox.showinfo("Device Sign-in Required", hint, parent=parent_window)
     result = app.acquire_token_by_device_flow(flow)
     if "access_token" not in result:
         raise RuntimeError(result.get("error_description", "Failed to acquire delegated token"))

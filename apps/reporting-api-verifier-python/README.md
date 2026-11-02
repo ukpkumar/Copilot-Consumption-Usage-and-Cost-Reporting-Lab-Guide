@@ -37,7 +37,10 @@ For device sign-in:
 
 1. Choose `DelegatedDeviceCode`
 2. Click **Run**
-3. Complete browser/device-code sign-in
+3. The app opens the browser and copies the device code to clipboard
+4. Complete sign-in
+
+If you don't want any interactive prompt, set auth mode to `AppSecret`.
 
 ## Output
 
@@ -49,4 +52,3 @@ For device sign-in:
 
 - Keep `config.local.json` private; do not commit it.
 - Some Graph Copilot endpoints may require delegated auth even if app-only token is valid.
-
