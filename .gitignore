@@ -5,6 +5,9 @@ node_modules/
 data/*.json
 dashboard.built.html
 copilot-tenant-cost-cowork-app.zip
+apps/reporting-api-verifier-gui/config.local.json
+apps/reporting-api-verifier-gui/output/
+apps/reporting-api-verifier/output/
 
 # Logs
 npm-debug.log*

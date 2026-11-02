@@ -19,6 +19,7 @@ Then you can view the unified snapshot in `dashboard.html`.
 - **Optional lab (Python bootstrap):** [docs/REPO-BOOTSTRAP-WITH-PYTHON.md](./docs/REPO-BOOTSTRAP-WITH-PYTHON.md)
 - **Reusable PowerShell API verifier:** [docs/POWERSHELL-API-VERIFIER.md](./docs/POWERSHELL-API-VERIFIER.md)
 - **Interactive reporting verifier app:** [apps/reporting-api-verifier/README.md](./apps/reporting-api-verifier/README.md)
+- **Desktop GUI reporting verifier app:** [apps/reporting-api-verifier-gui/README.md](./apps/reporting-api-verifier-gui/README.md)
 
 ## Identity model (why you might see one app vs two apps)
 
