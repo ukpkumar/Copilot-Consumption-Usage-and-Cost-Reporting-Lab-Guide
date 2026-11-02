@@ -204,9 +204,9 @@ def main():
     repo_root = Path(__file__).resolve().parents[2]
     config = load_config(args.config, repo_root)
 
-    tenant_id = config.get("tenantId", "").strip()
-    client_id = config.get("clientId", "").strip()
-    client_secret = config.get("clientSecret", "")
+    tenant_id = str(config.get("tenantId", "")).strip()
+    client_id = str(config.get("clientId", "")).strip()
+    client_secret = str(config.get("clientSecret", "") or "")
     if not tenant_id or not client_id:
         raise RuntimeError("tenantId and clientId are required in config JSON")
 
@@ -304,9 +304,28 @@ def main():
             if user_vars_raw:
                 vars_obj.update(json.loads(user_vars_raw))
 
+            effective_tenant_id = str(vars_obj.get("tenantId") or tenant_id).strip()
+            effective_client_id = str(vars_obj.get("clientId") or client_id).strip()
+            effective_client_secret = str(vars_obj.get("clientSecret") or client_secret or "").strip()
+
+            if not effective_tenant_id or effective_tenant_id.lower() == "your-tenant-id-guid":
+                raise RuntimeError("tenantId is missing or placeholder. Update config.local.json or Variables JSON.")
+            if not effective_client_id or effective_client_id.lower() == "your-app-client-id-guid":
+                raise RuntimeError("clientId is missing or placeholder. Update config.local.json or Variables JSON.")
+            if auth_mode == "AppSecret":
+                if not effective_client_secret or effective_client_secret.lower() == "your-client-secret":
+                    raise RuntimeError("clientSecret is missing or placeholder for AppSecret mode.")
+
             resolved_url = resolve_template(template, vars_obj)
             scope = get_scope(scope_kind, auth_mode, vars_obj.get("dataverseUrl"))
-            token = acquire_token(auth_mode, tenant_id, client_id, client_secret, scope, root)
+            token = acquire_token(
+                auth_mode,
+                effective_tenant_id,
+                effective_client_id,
+                effective_client_secret,
+                scope,
+                root,
+            )
 
             body_raw = body_text.get("1.0", END).strip()
             body_obj = json.loads(body_raw) if body_raw else None
@@ -343,4 +362,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
