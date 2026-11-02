@@ -65,6 +65,18 @@ function Read-Credentials {
   if (-not (Test-Path -LiteralPath $resolved)) {
     throw "Credentials file not found: $resolved"
   }
+
+  function Get-PropertyValue {
+    param(
+      [object]$Object,
+      [string]$Name,
+      $Default = $null
+    )
+    if ($null -eq $Object) { return $Default }
+    $prop = $Object.PSObject.Properties[$Name]
+    if ($null -eq $prop) { return $Default }
+    return $prop.Value
+  }
   $cfg = Get-Content -Raw -LiteralPath $resolved | ConvertFrom-Json
   return [pscustomobject]@{
     Path = $resolved
@@ -361,16 +373,30 @@ $repoRoot = (Resolve-Path (Join-Path $scriptDir "..\..")).Path
 $cfgWrap = Read-Config -PathValue $ConfigPath -RepoRoot $repoRoot
 $cfg = $cfgWrap.Value
 
-$credPathValue = if ($CredentialsPath) { $CredentialsPath } elseif ($cfg.credentialsFile) { [string]$cfg.credentialsFile } else { ".\apps\reporting-api-verifier-gui\credentials.local.json" }
-$credWrap = Read-Credentials -PathValue $credPathValue -RepoRoot $repoRoot
-$cred = $credWrap.Value
+$credPathValue = if ($CredentialsPath) {
+  $CredentialsPath
+} else {
+  $fromConfig = Get-PropertyValue -Object $cfg -Name "credentialsFile" -Default $null
+  if ($fromConfig) { [string]$fromConfig } else { ".\apps\reporting-api-verifier-gui\credentials.local.json" }
+}
+
+$cred = $null
+$credPathResolved = Resolve-PathSafe -PathValue $credPathValue -BasePath $repoRoot
+if (Test-Path -LiteralPath $credPathResolved) {
+  $credWrap = Read-Credentials -PathValue $credPathValue -RepoRoot $repoRoot
+  $cred = $credWrap.Value
+  $credPathResolved = $credWrap.Path
+}
 
 $baseVars = @{}
-if ($cfg.subscriptionId) { $baseVars["subscriptionId"] = [string]$cfg.subscriptionId }
-if ($cfg.dataverseUrl) { $baseVars["dataverseUrl"] = ([string]$cfg.dataverseUrl).TrimEnd("/") }
+$cfgSubscriptionId = Get-PropertyValue -Object $cfg -Name "subscriptionId" -Default $null
+$cfgDataverseUrl = Get-PropertyValue -Object $cfg -Name "dataverseUrl" -Default $null
+if ($cfgSubscriptionId) { $baseVars["subscriptionId"] = [string]$cfgSubscriptionId }
+if ($cfgDataverseUrl) { $baseVars["dataverseUrl"] = ([string]$cfgDataverseUrl).TrimEnd("/") }
 
-$outputDir = if ($cfg.outputDir) {
-  Resolve-PathSafe -PathValue ([string]$cfg.outputDir) -BasePath $repoRoot
+$cfgOutputDir = Get-PropertyValue -Object $cfg -Name "outputDir" -Default $null
+$outputDir = if ($cfgOutputDir) {
+  Resolve-PathSafe -PathValue ([string]$cfgOutputDir) -BasePath $repoRoot
 } else {
   Join-Path $scriptDir "output"
 }
@@ -388,7 +414,8 @@ $lblConfig.Location = New-Object System.Drawing.Point(12, 12)
 $form.Controls.Add($lblConfig)
 
 $lblCred = New-Object System.Windows.Forms.Label
-$lblCred.Text = "Credentials: $($credWrap.Path)"
+$credLabel = if ($cred) { "Credentials: $credPathResolved" } else { "Credentials: not found (using values from config.local.json)" }
+$lblCred.Text = $credLabel
 $lblCred.AutoSize = $true
 $lblCred.Location = New-Object System.Drawing.Point(12, 28)
 $form.Controls.Add($lblCred)
@@ -402,7 +429,8 @@ $form.Controls.Add($lblAuth)
 $cmbAuth = New-Object System.Windows.Forms.ComboBox
 $cmbAuth.DropDownStyle = "DropDownList"
 $cmbAuth.Items.AddRange(@("AppSecret", "DelegatedDeviceCode"))
-$cmbAuth.SelectedItem = if ($cfg.defaultAuthMode) { [string]$cfg.defaultAuthMode } else { "AppSecret" }
+$cfgDefaultAuthMode = Get-PropertyValue -Object $cfg -Name "defaultAuthMode" -Default $null
+$cmbAuth.SelectedItem = if ($cfgDefaultAuthMode) { [string]$cfgDefaultAuthMode } else { "AppSecret" }
 $cmbAuth.Location = New-Object System.Drawing.Point(55, 59)
 $cmbAuth.Width = 170
 $form.Controls.Add($cmbAuth)
@@ -549,12 +577,12 @@ $btnRun.Add_Click({
     $lblStatus.Text = "Status: running..."
     $form.Refresh()
 
-    $tenantId = [string]$cred.tenantId
-    if (-not $tenantId) { $tenantId = [string]$cfg.tenantId }
-    $clientId = [string]$cred.clientId
-    if (-not $clientId) { $clientId = [string]$cfg.clientId }
-    $clientSecret = [string]$cred.clientSecret
-    if (-not $clientSecret) { $clientSecret = [string]$cfg.clientSecret }
+    $tenantId = [string](Get-PropertyValue -Object $cred -Name "tenantId" -Default $null)
+    if (-not $tenantId) { $tenantId = [string](Get-PropertyValue -Object $cfg -Name "tenantId" -Default $null) }
+    $clientId = [string](Get-PropertyValue -Object $cred -Name "clientId" -Default $null)
+    if (-not $clientId) { $clientId = [string](Get-PropertyValue -Object $cfg -Name "clientId" -Default $null) }
+    $clientSecret = [string](Get-PropertyValue -Object $cred -Name "clientSecret" -Default $null)
+    if (-not $clientSecret) { $clientSecret = [string](Get-PropertyValue -Object $cfg -Name "clientSecret" -Default $null) }
     if ([string]::IsNullOrWhiteSpace($tenantId) -or [string]::IsNullOrWhiteSpace($clientId)) {
       throw "tenantId/clientId are required in credentials JSON."
     }

@@ -229,7 +229,13 @@ def main():
     repo_root = Path(__file__).resolve().parents[2]
     config = load_config(args.config, repo_root)
     cred_path = args.credentials or config.get("credentialsFile") or "apps/reporting-api-verifier-python/credentials.local.json"
-    credentials, resolved_cred_path = load_json_file(str(cred_path), repo_root, "Credentials")
+    credentials = {}
+    resolved_cred_path = None
+    try:
+        credentials, resolved_cred_path = load_json_file(str(cred_path), repo_root, "Credentials")
+    except FileNotFoundError:
+        credentials = {}
+        resolved_cred_path = None
 
     tenant_id = str(credentials.get("tenantId", "") or config.get("tenantId", "")).strip()
     client_id = str(credentials.get("clientId", "") or config.get("clientId", "")).strip()
@@ -252,7 +258,8 @@ def main():
     root.geometry("1280x860")
 
     Label(root, text=f"Config: {Path(args.config)}").place(x=12, y=10)
-    Label(root, text=f"Credentials: {resolved_cred_path}").place(x=12, y=28)
+    cred_label = f"Credentials: {resolved_cred_path}" if resolved_cred_path else "Credentials: not found (using config.local.json values)"
+    Label(root, text=cred_label).place(x=12, y=28)
 
     Label(root, text="Auth").place(x=12, y=60)
     auth_var = StringVar(value=config.get("defaultAuthMode", "AppSecret"))
